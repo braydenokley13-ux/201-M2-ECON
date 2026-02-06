@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bow Sports Capital - Creative Business Simulation</title>
+<style>
+/* ========== CSS RESET & BASE ========== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#305496;--primary-light:#4a7bd4;--primary-dark:#1e3a6e;
+  --accent:#f59e0b;--accent-light:#fbbf24;--accent-dark:#d97706;
+  --success:#10b981;--danger:#ef4444;--danger-light:#fca5a5;
+  --bg:#0f172a;--bg-card:#1e293b;--bg-card-hover:#273548;
+  --text:#e2e8f0;--text-muted:#94a3b8;--text-bright:#f8fafc;
+  --border:#334155;
+  --radius:12px;--radius-sm:8px;
+  --shadow:0 4px 24px rgba(0,0,0,.4);
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+  --mono:'Fira Code','Cascadia Code','SF Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font);background:var(--bg);color:var(--text);
+  min-height:100vh;overflow-x:hidden;line-height:1.6;
+}
+
+/* ========== ANIMATED BACKGROUND ========== */
+.bg-grid{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(48,84,150,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(48,84,150,.06) 1px,transparent 1px);
+  background-size:40px 40px;
+  animation:gridMove 20s linear infinite;
+}
+@keyframes gridMove{to{background-position:40px 40px}}
+
+.bg-glow{
+  position:fixed;z-index:0;pointer-events:none;border-radius:50%;filter:blur(120px);opacity:.15;
+}
+.bg-glow-1{top:-200px;left:-200px;width:600px;height:600px;background:var(--primary);animation:pulse1 8s ease-in-out infinite}
+.bg-glow-2{bottom:-200px;right:-200px;width:500px;height:500px;background:var(--accent);animation:pulse2 10s ease-in-out infinite}
+@keyframes pulse1{0%,100%{opacity:.12;transform:scale(1)}50%{opacity:.2;transform:scale(1.1)}}
+@keyframes pulse2{0%,100%{opacity:.08;transform:scale(1)}50%{opacity:.15;transform:scale(1.15)}}
+
+/* ========== APP WRAPPER ========== */
+.app{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:20px 16px 60px}
+
+/* ========== HEADER ========== */
+.header{
+  text-align:center;padding:40px 20px 30px;margin-bottom:32px;
+  background:linear-gradient(135deg,var(--primary-dark),var(--primary),var(--primary-light));
+  border-radius:var(--radius);box-shadow:var(--shadow);
+  position:relative;overflow:hidden;
+}
+.header::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(255,255,255,.03) 10px,rgba(255,255,255,.03) 20px);
+}
+.header h1{font-size:clamp(1.5rem,4vw,2.2rem);color:#fff;font-weight:800;letter-spacing:-.5px;position:relative}
+.header .subtitle{color:rgba(255,255,255,.8);font-size:.95rem;margin-top:8px;position:relative}
+.header .badge{
+  display:inline-block;margin-top:12px;padding:4px 14px;
+  background:var(--accent);color:#000;font-weight:700;font-size:.75rem;
+  border-radius:20px;text-transform:uppercase;letter-spacing:1px;position:relative;
+}
+
+/* ========== PROGRESS BAR ========== */
+.progress-container{
+  background:var(--bg-card);border-radius:var(--radius);padding:20px 24px;
+  margin-bottom:28px;box-shadow:var(--shadow);border:1px solid var(--border);
+}
+.progress-label{display:flex;justify-content:space-between;margin-bottom:10px;font-size:.85rem}
+.progress-label span:first-child{color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.progress-label span:last-child{color:var(--accent);font-weight:700}
+.progress-bar{height:10px;background:var(--border);border-radius:8px;overflow:hidden;position:relative}
+.progress-fill{
+  height:100%;width:0%;border-radius:8px;transition:width .8s cubic-bezier(.25,.46,.45,.94);
+  background:linear-gradient(90deg,var(--primary),var(--accent));
+  position:relative;
+}
+.progress-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);
+  animation:shimmer 2s infinite;
+}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.progress-steps{display:flex;justify-content:space-between;margin-top:10px}
+.progress-step{
+  font-size:.7rem;color:var(--text-muted);text-align:center;font-weight:600;
+  transition:color .3s;cursor:default;
+}
+.progress-step.completed{color:var(--success)}
+.progress-step.active{color:var(--accent)}
+
+/* ========== CHAPTER SCREENS ========== */
+.screen{display:none;animation:fadeSlideIn .5s ease-out}
+.screen.active{display:block}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ========== NARRATIVE CARD ========== */
+.narrative-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:28px;margin-bottom:24px;box-shadow:var(--shadow);
+  position:relative;overflow:hidden;
+}
+.narrative-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--primary),var(--accent));
+}
+.chapter-tag{
+  display:inline-block;padding:4px 12px;background:var(--primary);color:#fff;
+  font-size:.7rem;font-weight:700;border-radius:4px;text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:16px;
+}
+.narrative-card h2{
+  font-size:1.35rem;color:var(--text-bright);margin-bottom:12px;font-weight:700;
+}
+.narrative-text{color:var(--text);line-height:1.75;font-size:.95rem}
+.narrative-text p{margin-bottom:12px}
+
+/* ========== CHOICE CARDS ========== */
+.choices-heading{
+  font-size:.8rem;color:var(--accent);font-weight:700;text-transform:uppercase;
+  letter-spacing:1.5px;margin-bottom:14px;
+}
+.choices-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.choice-card{
+  background:var(--bg-card);border:2px solid var(--border);border-radius:var(--radius-sm);
+  padding:18px 20px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;
+}
+.choice-card:hover{border-color:var(--primary-light);background:var(--bg-card-hover);transform:translateX(4px)}
+.choice-card.selected{
+  border-color:var(--accent);background:rgba(245,158,11,.08);
+  box-shadow:0 0 20px rgba(245,158,11,.12);
+}
+.choice-card.selected .choice-letter{background:var(--accent);color:#000}
+.choice-letter{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:50%;font-weight:800;font-size:.85rem;
+  background:var(--border);color:var(--text-muted);margin-right:12px;
+  transition:all .25s;flex-shrink:0;
+}
+.choice-content{display:flex;align-items:center}
+.choice-text{font-size:.9rem;color:var(--text)}
+.choice-card.selected .choice-text{color:var(--text-bright)}
+
+/* ========== OUTCOME BOX ========== */
+.outcome-box{
+  background:linear-gradient(135deg,rgba(48,84,150,.15),rgba(48,84,150,.05));
+  border:1px solid rgba(48,84,150,.3);border-radius:var(--radius-sm);
+  padding:20px 24px;margin-bottom:24px;display:none;animation:fadeSlideIn .5s;
+}
+.outcome-box.visible{display:block}
+.outcome-box h3{color:var(--primary-light);font-size:.95rem;margin-bottom:10px;font-weight:700}
+.outcome-box p{color:var(--text);font-size:.9rem;line-height:1.7}
+
+/* ========== QUIZ SECTION ========== */
+.quiz-section{display:none;animation:fadeSlideIn .4s}
+.quiz-section.visible{display:block}
+.quiz-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border);
+}
+.quiz-header h3{color:var(--text-bright);font-size:1.1rem;font-weight:700}
+.quiz-score-badge{
+  padding:6px 14px;border-radius:20px;font-size:.8rem;font-weight:700;
+  background:var(--border);color:var(--text-muted);
+}
+
+.question-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:22px;margin-bottom:16px;transition:border-color .3s;
+}
+.question-card.answered-correct{border-color:var(--success)}
+.question-card.answered-wrong{border-color:var(--danger)}
+.question-number{
+  font-size:.7rem;color:var(--accent);font-weight:700;text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:8px;
+}
+.question-text{color:var(--text-bright);font-size:.92rem;font-weight:600;margin-bottom:14px;line-height:1.6}
+
+.options-list{display:flex;flex-direction:column;gap:8px}
+.option-btn{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  cursor:pointer;transition:all .2s;text-align:left;width:100%;
+  font-family:var(--font);font-size:.85rem;color:var(--text);
+}
+.option-btn:hover:not(:disabled){border-color:var(--primary-light);background:var(--bg-card-hover)}
+.option-btn.selected{border-color:var(--accent);background:rgba(245,158,11,.08);color:var(--text-bright)}
+.option-btn.correct{border-color:var(--success);background:rgba(16,185,129,.1);color:var(--success)}
+.option-btn.wrong{border-color:var(--danger);background:rgba(239,68,68,.1);color:var(--danger)}
+.option-btn:disabled{cursor:default;opacity:.85}
+.option-letter{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:26px;height:26px;border-radius:50%;font-weight:700;font-size:.75rem;
+  background:var(--border);color:var(--text-muted);transition:all .2s;flex-shrink:0;
+}
+.option-btn.selected .option-letter{background:var(--accent);color:#000}
+.option-btn.correct .option-letter{background:var(--success);color:#fff}
+.option-btn.wrong .option-letter{background:var(--danger);color:#fff}
+
+/* ========== RESULT BANNER ========== */
+.result-banner{
+  display:none;padding:24px;border-radius:var(--radius);margin-top:20px;
+  text-align:center;animation:fadeSlideIn .5s;
+}
+.result-banner.visible{display:block}
+.result-banner.pass{
+  background:linear-gradient(135deg,rgba(16,185,129,.15),rgba(16,185,129,.05));
+  border:1px solid rgba(16,185,129,.3);
+}
+.result-banner.fail{
+  background:linear-gradient(135deg,rgba(239,68,68,.15),rgba(239,68,68,.05));
+  border:1px solid rgba(239,68,68,.3);
+}
+.result-banner h3{font-size:1.2rem;margin-bottom:8px}
+.result-banner.pass h3{color:var(--success)}
+.result-banner.fail h3{color:var(--danger)}
+.result-banner p{font-size:.9rem;color:var(--text-muted)}
+
+/* ========== BUTTONS ========== */
+.btn{
+  display:inline-flex;align-items:center;gap:8px;padding:12px 28px;
+  border-radius:var(--radius-sm);font-weight:700;font-size:.9rem;
+  border:none;cursor:pointer;transition:all .25s;font-family:var(--font);
+  text-transform:uppercase;letter-spacing:.5px;
+}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+.btn-primary{
+  background:linear-gradient(135deg,var(--primary),var(--primary-light));
+  color:#fff;box-shadow:0 4px 15px rgba(48,84,150,.3);
+}
+.btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 20px rgba(48,84,150,.4)}
+.btn-accent{
+  background:linear-gradient(135deg,var(--accent-dark),var(--accent));
+  color:#000;box-shadow:0 4px 15px rgba(245,158,11,.3);
+}
+.btn-accent:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 20px rgba(245,158,11,.4)}
+.btn-ghost{
+  background:transparent;border:2px solid var(--border);color:var(--text);
+}
+.btn-ghost:hover:not(:disabled){border-color:var(--primary-light);color:var(--text-bright)}
+.btn-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+
+/* ========== WELCOME SCREEN ========== */
+.welcome-hero{text-align:center;padding:60px 20px 40px}
+.welcome-icon{font-size:4rem;margin-bottom:16px;display:block}
+.welcome-hero h2{font-size:clamp(1.3rem,3.5vw,1.8rem);color:var(--text-bright);margin-bottom:12px}
+.welcome-hero p{color:var(--text-muted);max-width:560px;margin:0 auto 24px;font-size:.95rem;line-height:1.7}
+
+.feature-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:14px;margin:24px 0 36px;
+}
+.feature-item{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:18px;text-align:center;transition:border-color .3s;
+}
+.feature-item:hover{border-color:var(--primary-light)}
+.feature-icon{font-size:1.5rem;margin-bottom:8px;display:block}
+.feature-item h4{color:var(--text-bright);font-size:.85rem;margin-bottom:4px}
+.feature-item p{color:var(--text-muted);font-size:.75rem}
+
+.email-input-group{
+  display:flex;gap:10px;max-width:420px;margin:0 auto;flex-wrap:wrap;justify-content:center;
+}
+.email-input{
+  flex:1;min-width:200px;padding:12px 16px;border-radius:var(--radius-sm);
+  border:2px solid var(--border);background:var(--bg-card);color:var(--text-bright);
+  font-size:.9rem;font-family:var(--font);transition:border-color .3s;
+}
+.email-input:focus{outline:none;border-color:var(--primary-light)}
+.email-input::placeholder{color:var(--text-muted)}
+
+/* ========== STATS BAR ========== */
+.stats-bar{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;
+}
+.stat-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:14px;text-align:center;
+}
+.stat-value{font-size:1.4rem;font-weight:800;color:var(--accent);font-family:var(--mono)}
+.stat-label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* ========== FINAL CHECK ========== */
+.final-intro{
+  background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(245,158,11,.03));
+  border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);
+  padding:24px;margin-bottom:24px;text-align:center;
+}
+.final-intro h3{color:var(--accent);margin-bottom:8px}
+.final-intro p{color:var(--text-muted);font-size:.9rem}
+
+/* ========== COMPLETION SCREEN ========== */
+.completion-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:40px;text-align:center;box-shadow:var(--shadow);
+}
+.completion-card .trophy{font-size:4rem;margin-bottom:16px;display:block}
+.completion-card h2{color:var(--accent);font-size:1.6rem;margin-bottom:10px}
+.completion-card p{color:var(--text-muted);margin-bottom:16px}
+.claim-code{
+  display:inline-block;padding:14px 28px;background:var(--bg);
+  border:2px dashed var(--accent);border-radius:var(--radius-sm);
+  font-family:var(--mono);font-size:1.3rem;font-weight:800;
+  color:var(--accent);letter-spacing:2px;margin:16px 0;
+}
+.summary-table{
+  width:100%;max-width:500px;margin:20px auto;text-align:left;
+  border-collapse:collapse;
+}
+.summary-table td{
+  padding:8px 12px;border-bottom:1px solid var(--border);font-size:.85rem;
+}
+.summary-table td:first-child{color:var(--text-muted);font-weight:600}
+.summary-table td:last-child{color:var(--text-bright);text-align:right}
+
+/* ========== CONCEPT TOOLTIP ========== */
+.concept{
+  color:var(--accent);font-weight:600;cursor:help;
+  border-bottom:1px dashed var(--accent);position:relative;
+}
+.concept:hover::after{
+  content:attr(data-def);position:absolute;bottom:calc(100% + 8px);left:50%;
+  transform:translateX(-50%);padding:10px 14px;background:var(--bg-card);
+  border:1px solid var(--accent);border-radius:var(--radius-sm);
+  font-size:.78rem;color:var(--text);white-space:normal;width:260px;
+  z-index:100;box-shadow:var(--shadow);font-weight:400;line-height:1.5;
+  pointer-events:none;
+}
+
+/* ========== CONFETTI CANVAS ========== */
+#confetti-canvas{position:fixed;inset:0;z-index:1000;pointer-events:none}
+
+/* ========== RESPONSIVE ========== */
+@media(max-width:600px){
+  .app{padding:12px 10px 40px}
+  .header{padding:28px 16px 22px}
+  .narrative-card{padding:20px}
+  .stats-bar{grid-template-columns:1fr}
+  .feature-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow bg-glow-1"></div>
+<div class="bg-glow bg-glow-2"></div>
+
+<canvas id="confetti-canvas"></canvas>
+
+<div class="app">
+  <!-- HEADER -->
+  <div class="header">
+    <h1>Bow Sports Capital</h1>
+    <div class="subtitle">Module 2: Economics Simulation</div>
+    <div class="badge">Creative Business Builder</div>
+  </div>
+
+  <!-- PROGRESS BAR -->
+  <div class="progress-container">
+    <div class="progress-label">
+      <span>Your Journey</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-steps">
+      <div class="progress-step" data-step="0">Start</div>
+      <div class="progress-step" data-step="1">Ch 1</div>
+      <div class="progress-step" data-step="2">Ch 2</div>
+      <div class="progress-step" data-step="3">Ch 3</div>
+      <div class="progress-step" data-step="4">Ch 4</div>
+      <div class="progress-step" data-step="5">Ch 5</div>
+      <div class="progress-step" data-step="6">Final</div>
+    </div>
+  </div>
+
+  <!-- ==================== WELCOME SCREEN ==================== -->
+  <div class="screen active" id="screen-welcome">
+    <div class="welcome-hero">
+      <span class="welcome-icon">&#127912;</span>
+      <h2>Build Your Creative Business Empire</h2>
+      <p>You're a talented young creative about to launch your career. Every choice you make will shape your business, income, and future. Learn real economics by living the decisions that entrepreneurs face every day.</p>
+
+      <div class="feature-grid">
+        <div class="feature-item">
+          <span class="feature-icon">&#128200;</span>
+          <h4>5 Chapters</h4>
+          <p>Strategic business decisions</p>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#129504;</span>
+          <h4>Real Economics</h4>
+          <p>Revenue, risk, valuation & more</p>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#127942;</span>
+          <h4>Final Challenge</h4>
+          <p>10-question assessment</p>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#128274;</span>
+          <h4>Claim Code</h4>
+          <p>Earn your completion reward</p>
+        </div>
+      </div>
+
+      <div class="email-input-group">
+        <input type="email" class="email-input" id="email-input" placeholder="Enter your school email..." autocomplete="email">
+        <button class="btn btn-accent" onclick="startSimulation()">Begin Journey</button>
+      </div>
+      <p style="margin-top:10px;font-size:.75rem;color:var(--text-muted)">Your email is used for progress tracking only.</p>
+    </div>
+  </div>
+
+  <!-- ==================== CHAPTER 1 ==================== -->
+  <div class="screen" id="screen-ch1">
+    <div class="narrative-card">
+      <span class="chapter-tag">Chapter 1</span>
+      <h2>The Starting Line: Choosing Your Path</h2>
+      <div class="narrative-text">
+        <p>You're fresh out of school with serious design skills and a growing social media following. Brands are starting to notice you. Now you face the biggest decision of your young career.</p>
+        <p>A startup wants to hire you full-time. A creative agency offers a 6-month contract. Or you could bet on yourself and go independent, hiring a junior designer to help scale.</p>
+        <p>Each path offers different tradeoffs between <span class="concept" data-def="A measure of how stable or predictable your income will be. Higher stability = less risk of sudden income drops.">stability</span>, <span class="concept" data-def="Expected value is the average outcome you'd get over many similar decisions. It helps compare choices with different risks and payoffs.">expected value</span>, and <span class="concept" data-def="How much influence you have over price, terms, and conditions in a negotiation.">bargaining power</span>. Which one will you choose?</p>
+      </div>
+    </div>
+
+    <div class="choices-heading">Choose Your Strategy</div>
+    <div class="choices-grid" id="choices-ch1">
+      <div class="choice-card" onclick="selectChoice(1,'A',this)">
+        <div class="choice-content">
+          <span class="choice-letter">A</span>
+          <span class="choice-text"><strong>Full-Time Job at a Startup</strong> &mdash; Stable salary, benefits, less control over your creative direction</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(1,'B',this)">
+        <div class="choice-content">
+          <span class="choice-letter">B</span>
+          <span class="choice-text"><strong>6-Month Agency Contract</strong> &mdash; Moderate stability with revenue sharing, agency handles clients</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(1,'C',this)">
+        <div class="choice-content">
+          <span class="choice-letter">C</span>
+          <span class="choice-text"><strong>Go Independent + Hire Help</strong> &mdash; Risky but scalable, you keep full ownership and control</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="outcome-box" id="outcome-ch1"></div>
+    <div class="quiz-section" id="quiz-ch1"></div>
+    <div class="result-banner" id="result-ch1"></div>
+    <div class="btn-row" id="nav-ch1" style="display:none">
+      <button class="btn btn-ghost" onclick="retryChapter(1)">Retry Chapter</button>
+      <button class="btn btn-primary" id="next-ch1" onclick="goToScreen('screen-ch2')" disabled>Next Chapter &rarr;</button>
+    </div>
+  </div>
+
+  <!-- ==================== CHAPTER 2 ==================== -->
+  <div class="screen" id="screen-ch2">
+    <div class="narrative-card">
+      <span class="chapter-tag">Chapter 2</span>
+      <h2>Scaling Up: Systems & Partners</h2>
+      <div class="narrative-text">
+        <p>Business is picking up. You're getting more requests than you can handle alone. It's time to think about systems, platforms, or partnerships to manage the workload.</p>
+        <p>A popular freelance platform offers steady gigs but takes a 25% cut. Some fellow creatives want to form a collective and share everything equally. Or you could stay solo and just hire an admin assistant to handle the boring stuff.</p>
+        <p>This chapter explores <span class="concept" data-def="Splitting earnings from a project or business between multiple parties (e.g., you and a platform).">revenue sharing</span>, <span class="concept" data-def="The cost of paying workers for their time and effort.">labor costs</span>, and the tradeoffs between independence and support.</p>
+      </div>
+    </div>
+
+    <div class="choices-heading">Choose Your Strategy</div>
+    <div class="choices-grid" id="choices-ch2">
+      <div class="choice-card" onclick="selectChoice(2,'A',this)">
+        <div class="choice-content">
+          <span class="choice-letter">A</span>
+          <span class="choice-text"><strong>Join a Freelance Platform</strong> &mdash; Steady gigs, but pay 25% platform fees on every project</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(2,'B',this)">
+        <div class="choice-content">
+          <span class="choice-letter">B</span>
+          <span class="choice-text"><strong>Form a Creative Collective</strong> &mdash; Share income and clients equally with other creatives</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(2,'C',this)">
+        <div class="choice-content">
+          <span class="choice-letter">C</span>
+          <span class="choice-text"><strong>Stay Solo + Hire Admin</strong> &mdash; Keep full control, outsource low-value tasks for $500/month</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="outcome-box" id="outcome-ch2"></div>
+    <div class="quiz-section" id="quiz-ch2"></div>
+    <div class="result-banner" id="result-ch2"></div>
+    <div class="btn-row" id="nav-ch2" style="display:none">
+      <button class="btn btn-ghost" onclick="retryChapter(2)">Retry Chapter</button>
+      <button class="btn btn-primary" id="next-ch2" onclick="goToScreen('screen-ch3')" disabled>Next Chapter &rarr;</button>
+    </div>
+  </div>
+
+  <!-- ==================== CHAPTER 3 ==================== -->
+  <div class="screen" id="screen-ch3">
+    <div class="narrative-card">
+      <span class="chapter-tag">Chapter 3</span>
+      <h2>The Big Offer: Client Relationships</h2>
+      <div class="narrative-text">
+        <p>A major national brand reaches out. They love your style and want you exclusively for one year at $85,000. No side clients allowed. It's flattering &mdash; and it's a serious decision.</p>
+        <p>You could take the guaranteed money and focus on one client. Or you could push back and negotiate better terms &mdash; shorter contract, performance bonuses, the right to keep a couple side clients. Or you could say "no thanks" and keep building your own brand.</p>
+        <p>This chapter is all about <span class="concept" data-def="How much influence you have when negotiating. If you have something unique the other party wants, your bargaining power is high.">bargaining power</span>, <span class="concept" data-def="The value of the next best option you gave up when making a choice.">opportunity cost</span>, and <span class="concept" data-def="Estimating what a business, brand, or product is worth based on its ability to generate future income.">asset valuation</span>.</p>
+      </div>
+    </div>
+
+    <div class="choices-heading">Choose Your Strategy</div>
+    <div class="choices-grid" id="choices-ch3">
+      <div class="choice-card" onclick="selectChoice(3,'A',this)">
+        <div class="choice-content">
+          <span class="choice-letter">A</span>
+          <span class="choice-text"><strong>Accept the Exclusive Deal</strong> &mdash; $85K guaranteed, high stability, no side clients for one year</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(3,'B',this)">
+        <div class="choice-content">
+          <span class="choice-letter">B</span>
+          <span class="choice-text"><strong>Negotiate Better Terms</strong> &mdash; Push for bonuses, shorter contract, and limited side work</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(3,'C',this)">
+        <div class="choice-content">
+          <span class="choice-letter">C</span>
+          <span class="choice-text"><strong>Decline and Stay Independent</strong> &mdash; Keep full ownership, higher risk but uncapped upside</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="outcome-box" id="outcome-ch3"></div>
+    <div class="quiz-section" id="quiz-ch3"></div>
+    <div class="result-banner" id="result-ch3"></div>
+    <div class="btn-row" id="nav-ch3" style="display:none">
+      <button class="btn btn-ghost" onclick="retryChapter(3)">Retry Chapter</button>
+      <button class="btn btn-primary" id="next-ch3" onclick="goToScreen('screen-ch4')" disabled>Next Chapter &rarr;</button>
+    </div>
+  </div>
+
+  <!-- ==================== CHAPTER 4 ==================== -->
+  <div class="screen" id="screen-ch4">
+    <div class="narrative-card">
+      <span class="chapter-tag">Chapter 4</span>
+      <h2>Growth Mode: Building Something Bigger</h2>
+      <div class="narrative-text">
+        <p>Your creative business is thriving. Revenue is solid, your reputation is growing, and now it's time to scale. But how?</p>
+        <p>You could hire support staff to handle more projects. You could build digital templates and license them &mdash; products that sell while you sleep. Or you could go all-in and build a full creative agency with employees and clients.</p>
+        <p>This chapter covers <span class="concept" data-def="The additional revenue earned from doing one more unit of work or selling one more product.">marginal revenue</span>, <span class="concept" data-def="The ability to grow output (and income) without equally growing hours worked. Products scale better than services.">scalability</span>, and how to increase your <span class="concept" data-def="The total worth of your business as something that could be sold or valued by investors.">business asset value</span>.</p>
+      </div>
+    </div>
+
+    <div class="choices-heading">Choose Your Strategy</div>
+    <div class="choices-grid" id="choices-ch4">
+      <div class="choice-card" onclick="selectChoice(4,'A',this)">
+        <div class="choice-content">
+          <span class="choice-letter">A</span>
+          <span class="choice-text"><strong>Hire Support Staff</strong> &mdash; More capacity, more projects, but higher fixed labor costs</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(4,'B',this)">
+        <div class="choice-content">
+          <span class="choice-letter">B</span>
+          <span class="choice-text"><strong>Build & License Templates</strong> &mdash; Scalable product income, sell once and earn repeatedly</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(4,'C',this)">
+        <div class="choice-content">
+          <span class="choice-letter">C</span>
+          <span class="choice-text"><strong>Build a Full Agency</strong> &mdash; Manage a team, high risk but highest potential long-term value</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="outcome-box" id="outcome-ch4"></div>
+    <div class="quiz-section" id="quiz-ch4"></div>
+    <div class="result-banner" id="result-ch4"></div>
+    <div class="btn-row" id="nav-ch4" style="display:none">
+      <button class="btn btn-ghost" onclick="retryChapter(4)">Retry Chapter</button>
+      <button class="btn btn-primary" id="next-ch4" onclick="goToScreen('screen-ch5')" disabled>Next Chapter &rarr;</button>
+    </div>
+  </div>
+
+  <!-- ==================== CHAPTER 5 ==================== -->
+  <div class="screen" id="screen-ch5">
+    <div class="narrative-card">
+      <span class="chapter-tag">Chapter 5</span>
+      <h2>Endgame: Legacy & Exit Strategy</h2>
+      <div class="narrative-text">
+        <p>You did it. You built a successful creative business from nothing. Now comes the question every entrepreneur eventually faces: what's your endgame?</p>
+        <p>A buyer offers $400,000 for your entire business. An investor group wants to put in capital for 20% equity. Or you could stay independent and let your profits compound year after year.</p>
+        <p>This final chapter explores <span class="concept" data-def="Estimating how much a business is worth based on its ability to generate profit.">asset valuation</span>, <span class="concept" data-def="Sharing ownership in a business. Investors receive equity in exchange for capital.">equity & investment</span>, and the power of <span class="concept" data-def="When profits are reinvested and earn returns on top of previous returns, growing total value over time.">compounding growth</span>.</p>
+      </div>
+    </div>
+
+    <div class="choices-heading">Choose Your Strategy</div>
+    <div class="choices-grid" id="choices-ch5">
+      <div class="choice-card" onclick="selectChoice(5,'A',this)">
+        <div class="choice-content">
+          <span class="choice-letter">A</span>
+          <span class="choice-text"><strong>Sell the Business</strong> &mdash; Cash out for $400K, trade future profits for guaranteed money now</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(5,'B',this)">
+        <div class="choice-content">
+          <span class="choice-letter">B</span>
+          <span class="choice-text"><strong>Take on Investors</strong> &mdash; Give up 20% equity to grow faster and scale bigger</span>
+        </div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(5,'C',this)">
+        <div class="choice-content">
+          <span class="choice-letter">C</span>
+          <span class="choice-text"><strong>Stay Independent</strong> &mdash; Keep 100% ownership, let value compound slowly over time</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="outcome-box" id="outcome-ch5"></div>
+    <div class="quiz-section" id="quiz-ch5"></div>
+    <div class="result-banner" id="result-ch5"></div>
+    <div class="btn-row" id="nav-ch5" style="display:none">
+      <button class="btn btn-ghost" onclick="retryChapter(5)">Retry Chapter</button>
+      <button class="btn btn-primary" id="next-ch5" onclick="goToScreen('screen-final')" disabled>Final Challenge &rarr;</button>
+    </div>
+  </div>
+
+  <!-- ==================== FINAL CHECK ==================== -->
+  <div class="screen" id="screen-final">
+    <div class="final-intro">
+      <h3>Final Challenge: Economics Assessment</h3>
+      <p>Answer 10 questions covering ALL the economic concepts from your journey. You need at least 7/10 to pass.</p>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-chapters">0/5</div>
+        <div class="stat-label">Chapters Passed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-questions">0</div>
+        <div class="stat-label">Questions Answered</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-accuracy">0%</div>
+        <div class="stat-label">Overall Accuracy</div>
+      </div>
+    </div>
+
+    <div class="quiz-section visible" id="quiz-final"></div>
+    <div class="result-banner" id="result-final"></div>
+    <div class="btn-row" id="nav-final" style="display:none">
+      <button class="btn btn-ghost" onclick="retryFinal()">Retry Assessment</button>
+    </div>
+  </div>
+
+  <!-- ==================== COMPLETION ==================== -->
+  <div class="screen" id="screen-complete">
+    <div class="completion-card">
+      <span class="trophy">&#127942;</span>
+      <h2>Simulation Complete!</h2>
+      <p>You've successfully built and navigated your creative business through every major challenge.</p>
+      <div class="claim-code" id="claim-code"></div>
+      <p style="font-size:.78rem;color:var(--text-muted)">Keep this code safe &mdash; it proves you completed the simulation.</p>
+      <table class="summary-table" id="summary-table"></table>
+      <div class="btn-row" style="margin-top:28px">
+        <button class="btn btn-accent" onclick="restartSimulation()">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .app -->
+
+<script>
+/* ==================================================================
+   BOW SPORTS CAPITAL - CREATIVE BUSINESS SIMULATION
+   Full game engine - standalone HTML
+   ================================================================== */
+
+// ==================== GAME STATE ====================
+const state = {
+  email: '',
+  currentScreen: 'screen-welcome',
+  chapters: {1:null,2:null,3:null,4:null,5:null},    // choice letter
+  chaptersPassed: {1:false,2:false,3:false,4:false,5:false},
+  chapterScores: {1:0,2:0,3:0,4:0,5:0},
+  finalPassed: false,
+  finalScore: 0,
+  totalCorrect: 0,
+  totalAnswered: 0,
+};
+
+// ==================== CHAPTER OUTCOMES ====================
+const OUTCOMES = {
+  1:{
+    A:"You take the full-time job at the startup. You gain stable income and benefits, but lose some control over your schedule, clients, and creative direction. The company keeps most of the upside if your work is extremely valuable.",
+    B:"You sign a 6-month contract with the agency. You get a steady base, plus work the agency brings in, but give up a cut of your revenue and some control over pricing.",
+    C:"You stay independent and hire a junior designer. Your costs go up, but so does your capacity to take on more clients and grow your business as an asset."
+  },
+  2:{
+    A:"You join a freelance platform. You get more consistent jobs with less marketing effort, but the platform takes a percentage of every dollar you earn.",
+    B:"You form a collective. Revenue is shared, risk is shared, and high performers sometimes feel they are subsidizing lower-output members.",
+    C:"You stay solo and hire admin help. Your time is freed up for higher-value work while you keep full control and high margins."
+  },
+  3:{
+    A:"You accept the exclusive 1-year deal. Income is stable, but you give up flexibility and the chance to work with other brands during this period.",
+    B:"You negotiate. You get better terms (like shorter length or bonuses) by using your bargaining power, because the brand wants your specific style.",
+    C:"You turn it down and keep your independence, choosing long-term growth and ownership over short-term stability."
+  },
+  4:{
+    A:"You hire support staff. Your fixed labor cost goes up, but you free time to bring in more and better projects.",
+    B:"You build and license templates. You shift from selling time to selling scalable products that can be sold repeatedly.",
+    C:"You build an agency. You become a manager and owner \u2014 taking on higher risk but also higher potential profit and resale value."
+  },
+  5:{
+    A:"You sell the business. You trade future uncertain earnings for a guaranteed lump sum today \u2014 giving up ownership.",
+    B:"You take investment. You give up a percentage of your company to grow faster and aim for a higher future valuation.",
+    C:"You stay independent. You keep 100% of control and profit and let value build slowly through compounding growth."
+  }
+};
+
+// ==================== QUESTION BANKS ====================
+const CHAPTER_QUESTIONS = {
+  1:{
+    A:[
+      {q:"Why does a salary make your monthly income less risky than freelancing?",options:["Salary is fixed and predictable each month","You always earn more than freelancers","You can never be fired","Taxes are lower for employees"],correct:0},
+      {q:"Expected value means the average result over many possible outcomes. Why is this useful when comparing salary vs freelancing?",options:["It helps compare stable income to variable income over time","It only measures worst-case scenario","It ignores risk completely","It is only used for stock markets"],correct:0},
+      {q:"You create $20,000/month in value but are paid $6,000/month. What is this difference an example of?",options:["Labor surplus (value workers create above their pay)","Revenue sharing","Asset sale","Interest income"],correct:0},
+      {q:"Stock options are a form of equity (ownership) that might be worth more later. What makes them valuable?",options:["If the company's value rises, your ownership slice can become worth more","They guarantee a fixed cash payment every month","They are risk-free by definition","They reduce your tax rate automatically"],correct:0},
+      {q:"Which tradeoff best describes choosing the full-time job?",options:["Higher stability now, potentially lower upside later","Lower stability now, higher upside later","No tradeoff \u2014 it dominates freelancing in every way","Higher risk and no benefits"],correct:0},
+      {q:"Bargaining power means how much influence you have over pay and terms. Why does bargaining power usually drop when you become an employee?",options:["You have one main buyer of your labor (your employer)","You control multiple clients at once","You can easily walk away without cost","You are the only worker in the market"],correct:0}
+    ],
+    B:[
+      {q:"The agency taking 20% of your earnings is an example of revenue sharing. What is revenue sharing?",options:["Splitting income from a project between parties","Paying a fixed tax to the government","Borrowing money from a bank","Buying equipment for your studio"],correct:0},
+      {q:"Why is a fixed monthly retainer plus a percentage of project fees a good place to use expected value?",options:["Because some months have more projects than others","Because income never changes","Because it ignores risk completely","Because it only measures worst-case outcomes"],correct:0},
+      {q:"Compared to pure freelancing, what do you give up by letting the agency handle pricing and client relationships?",options:["Bargaining power (control over price and terms)","Health insurance","Your portfolio","Your legal name"],correct:0},
+      {q:"Why might a new freelancer accept lower pay per project through an agency?",options:["The agency brings clients, lowering marketing time and risk","Agencies are required by law","Agencies never take a fee","Agencies remove all deadlines"],correct:0},
+      {q:"What is the main tradeoff in the agency model?",options:["Less income per project in exchange for more consistent work","More income per project and no work","No income but full freedom","Guaranteed lifetime contract"],correct:0},
+      {q:"Why might the agency's 20% cut be justified from your perspective?",options:["They handle sales, marketing, and client management you don't want to do","They pay your rent directly","They own your personal brand","They guarantee you will never have competition"],correct:0}
+    ],
+    C:[
+      {q:"Paying a junior designer a monthly wage is best described as what type of cost?",options:["Labor cost (money paid to workers)","Equipment cost","Marketing cost","Passive income"],correct:0},
+      {q:"Why does delegating 30% of the work to a junior designer increase your revenue capacity?",options:["You free up time to take more clients and higher-value tasks","You lose all clients","You stop working completely","You must lower your prices"],correct:0},
+      {q:"If the junior designer creates 30% of the total value but you keep 70% of the revenue, what concept does this show?",options:["Revenue sharing between you and the junior","Taxation","Debt repayment","Asset depreciation"],correct:0},
+      {q:"If your profit rises over time because of the junior designer's help, what happens to your business as an asset?",options:["Its value increases because it can earn more profit","Its value always falls","It stops being a business","It becomes impossible to sell"],correct:0},
+      {q:"Taking on a short-term cost (the junior's salary) to grow long-term profit is an example of using which idea?",options:["Expected value (trading small costs now for bigger gains later)","Inflation","Sunk cost fallacy","Pure luck"],correct:0},
+      {q:"Compared to working alone, hiring a junior designer shifts your role slightly toward:",options:["Business owner who manages people and systems","Pure hourly worker only","Investor in stocks only","Client with no responsibility"],correct:0}
+    ]
+  },
+  2:{
+    A:[
+      {q:"A platform taking 25% of your revenue is what type of arrangement?",options:["Revenue sharing (splitting earnings with the platform)","Fixed salary","Loan repayment","Tax refund"],correct:0},
+      {q:"Why might your revenue per project go down when working through a platform, even if you do more jobs?",options:["The platform fee reduces your cut on each job","Platforms ban repeat clients","Platforms pay bonuses on every job","Platforms give you ownership shares"],correct:0},
+      {q:"What tradeoff are you making by choosing platform work?",options:["Less profit per job in exchange for more consistent work and less marketing","More profit per job and no marketing","No work at all","Guaranteed full creative control and no rules"],correct:0},
+      {q:"Why does your bargaining power usually drop when platform rules control pricing?",options:["The platform, not you, sets or strongly influences the rates","You can negotiate with each client easily","You own the entire platform","Clients must follow your personal rules"],correct:0},
+      {q:"Revenue consistency means income is more predictable month to month. How does a platform help with this?",options:["It sends a steady flow of potential projects","It guarantees one giant project","It eliminates all competition","It directly pays your rent"],correct:0},
+      {q:"Why might some freelancers leave a platform after building a strong client list?",options:["To keep more of the revenue they generate","Because their skill level drops","Because platforms forbid direct contact with clients","Because platform fees turn into bonuses"],correct:0}
+    ],
+    B:[
+      {q:"A creative collective that splits income equally regardless of who does more work is an example of:",options:["Shared revenue model (everyone shares total earnings)","Commission-only pay","Salary-only model","Pure volunteer work"],correct:0},
+      {q:"Why might high performers be unhappy in an equal-splits collective?",options:["They earn the same as people who do less work","They always earn more than others","They never get any clients","They are forced to leave after good months"],correct:0},
+      {q:"What is a benefit of forming a collective?",options:["Shared risk and more stability from pooled clients","Guaranteed solo control of all decisions","No need to find clients at all","No coordination or meetings required"],correct:0},
+      {q:"Labor economics studies how people work, get paid, and cooperate. Why does a collective need rules based on labor economics?",options:["To balance fairness, incentives, and productivity among members","To set interest rates at banks","To control national inflation","To design computer hardware"],correct:0},
+      {q:"If one member threatens to leave unless they receive a bigger share, what concept are they using?",options:["Bargaining power (using leverage to negotiate terms)","Risk aversion","Tax optimization","Brand loyalty"],correct:0},
+      {q:"Why might a collective still be attractive even if some members work more than others?",options:["Members value stability, shared risk, and community support","Everyone wants to work less","It guarantees the highest individual income","It removes all responsibility"],correct:0}
+    ],
+    C:[
+      {q:"Paying someone $500/month to handle admin is what kind of decision?",options:["Labor investment (spending on help to free your time)","Buying a physical asset","Taking on debt","Passive income"],correct:0},
+      {q:"If admin help lets you earn $1,000 more per month, what is your net gain?",options:["$500 (extra $1,000 income minus $500 cost)","$1,000","$1,500","$0"],correct:0},
+      {q:"Why does outsourcing admin increase your efficiency?",options:["You spend more time on high-value design work","You spend more time on low-value tasks","You stop taking clients","You do double the admin work"],correct:0},
+      {q:"Keeping full control over pricing and client list gives you what in negotiations?",options:["High bargaining power (strong control over terms)","No bargaining power","Guaranteed low rates","Dependence on one platform"],correct:0},
+      {q:"Why might this solo-plus-admin model be more sustainable long term?",options:["You reduce burnout while keeping strong profit margins","You increase burnout and reduce profit","You stop working entirely","You give away ownership of your brand"],correct:0},
+      {q:"Compared to joining a platform, what do you keep more of under this model?",options:["Your revenue and control over your brand","Platform loyalty points","Agency equity","Tax subsidies"],correct:0}
+    ]
+  },
+  3:{
+    A:[
+      {q:"Why is accepting a fixed $85,000 exclusive contract called a low-risk, high-stability choice?",options:["Income is guaranteed for the year regardless of month-to-month client demand","Income is completely unpredictable","You can work for unlimited other clients","You only get paid if campaigns go viral"],correct:0},
+      {q:"Exclusivity means you cannot work for competing or other clients. What is the main cost of this?",options:["Lost opportunity to earn from other brands during the contract","Higher hourly rates","Lower workload","No time commitment"],correct:0},
+      {q:"If the brand uses your work to grow its profits but you only receive the fixed salary, what is happening?",options:["You create asset value for someone else","You keep all asset value","You buy shares automatically","You receive royalties on every sale"],correct:0},
+      {q:"What is a key downside of long exclusive contracts?",options:["You lock yourself out of possibly better deals that appear later","You always get bonuses","They reduce your skills","They remove all deadlines"],correct:0},
+      {q:"When you cannot quickly change terms after signing, economists call this a sunk opportunity. What does that mean?",options:["A chance you gave up in the past and cannot easily reclaim","A future opportunity you are guaranteed to get","Money stored in savings","A legal penalty"],correct:0},
+      {q:"Why might someone still prefer this exclusive contract?",options:["They value predictable income and less stress more than maximum upside","They want maximum risk","They prefer no income","They want unlimited clients at once"],correct:0}
+    ],
+    B:[
+      {q:"What concept are you using when you ask for a shorter term or better pay because the brand wants your style?",options:["Bargaining power (ability to negotiate better terms)","Inventory turnover","Tax incidence","Brand dilution"],correct:0},
+      {q:"A deal with base pay plus performance bonuses is an example of which income structure?",options:["Mixed income \u2014 part guaranteed, part based on results","Pure fixed income","Pure commission","No income"],correct:0},
+      {q:"Why does keeping the ability to work with 1\u20132 other clients increase your option value?",options:["You preserve future choices and flexibility","You remove all options","You must stay with one client forever","You cannot learn new skills"],correct:0},
+      {q:"As your portfolio grows with a national brand, what is likely happening to your personal brand?",options:["Its asset value increases \u2014 it becomes more valuable in the market","It becomes worthless","It loses all followers","It stops earning forever"],correct:0},
+      {q:"Why is negotiation possible at all in this situation?",options:["You have something the brand wants \u2014 your proven style and audience","You are their only employee","The law requires them to negotiate","They have unlimited similar designers"],correct:0},
+      {q:"If the brand agrees to performance bonuses, what does that do to your expected value of income?",options:["It can raise the average income you expect based on campaign success","It guarantees lower income","It removes any upside","It fixes income at zero"],correct:0}
+    ],
+    C:[
+      {q:"Turning down the exclusive deal to keep building your own brand is:",options:["A higher-risk, higher-upside strategy","A guaranteed income strategy","Risk-free","Illegal"],correct:0},
+      {q:"Your brand, audience, and digital products are examples of:",options:["Business assets (things you own that can produce income)","Monthly expenses","Loans","Taxes"],correct:0},
+      {q:"Why is income more volatile in this path?",options:["Revenue can move up and down rapidly with demand and launches","You get a fixed salary","You have a guaranteed minimum","Laws prevent fluctuations"],correct:0},
+      {q:"Why might this path have higher long-term expected value than a fixed salary?",options:["There is no cap on how much your own brand can eventually earn","Income is capped by the employer","You never grow your skills","You lose all control"],correct:0},
+      {q:"Keeping 100% of ownership in your audience and products means:",options:["You keep all the equity (ownership value)","You must share profits with others","You cannot raise prices","You give away rights to another company"],correct:0},
+      {q:"Which person is most likely to choose this path?",options:["Someone who values freedom and long-term upside more than short-term stability","Someone who hates risk of any kind","Someone close to retirement looking for security only","Someone forbidden from self-employment"],correct:0}
+    ]
+  },
+  4:{
+    A:[
+      {q:"Hiring support staff increases which type of cost?",options:["Fixed labor cost (regular pay for helpers)","One-time equipment cost","Loan interest","Tax refunds"],correct:0},
+      {q:"Delegating non-billable work like email and scheduling increases your:",options:["Revenue generation potential (ability to earn more)","Time spent on low-value tasks","Need for random hobbies","Fixed rent"],correct:0},
+      {q:"The extra income you earn from adding one more project after hiring help is called:",options:["Marginal revenue (additional revenue from one more unit of work)","Fixed cost","Sunk cost","Depreciation"],correct:0},
+      {q:"Why does your business become more valuable as an asset when systems and support staff make it run smoothly?",options:["It can generate profit more reliably without burning you out","It stops generating profit","It becomes illegal","It cannot be sold"],correct:0},
+      {q:"Labor economics can help explain your decision because it studies:",options:["How workers, wages, and productivity interact","How planets move in space","Only government budgets","Only stock markets"],correct:0},
+      {q:"What is a potential risk of adding support staff?",options:["Your fixed costs rise, so you must keep enough work to cover them","Your rent disappears","You can never increase prices","Clients must pay more tax"],correct:0}
+    ],
+    B:[
+      {q:"Selling digital templates that can be bought by many creators is an example of what?",options:["Scalable product income (product can be sold many times)","One-time freelance gig","Loan repayment","Government grant"],correct:0},
+      {q:"Why does your labor cost per sale drop as more people buy your templates?",options:["You do the design work once but sell it many times","You redesign for every buyer","You must hire more staff for each sale","You must print physical copies"],correct:0},
+      {q:"When you earn money even while you are asleep or not working, this is called:",options:["Passive or residual income","Fixed salary only","Penalty income","Negative equity"],correct:0},
+      {q:"As your template store sells more each month, what happens to the store's value as an asset?",options:["It increases because its earning power grows","It falls to zero automatically","It cannot be valued","It becomes a liability only"],correct:0},
+      {q:"Moving from services (selling time) to products (selling templates) mainly improves:",options:["Scalability (ability to grow without equal increases in hours)","Rent payments","Tax rates","Commute distance"],correct:0},
+      {q:"What is a risk of focusing only on template sales?",options:["Revenue can drop if trends change and assets become outdated","You keep all your time free forever","You always get guaranteed income","Clients must still pay for custom work"],correct:0}
+    ],
+    C:[
+      {q:"Paying 3 full-time employees is primarily what type of cost?",options:["Fixed labor cost (you pay salaries regardless of monthly revenue)","Variable tax cost","One-time startup cost","Passive income"],correct:0},
+      {q:"If the agency bills $25,000/month and pays $12,000/month in salaries, what is this difference called?",options:["Labor margin or profit margin (revenue minus payroll)","Revenue sharing","Debt financing","Pure donation"],correct:0},
+      {q:"When you shift from doing all client work yourself to managing others, your role becomes more like:",options:["Business owner/operator","Intern","Banker","Full-time client"],correct:0},
+      {q:"Why does an agency that can operate without your daily design work have higher resale value?",options:["A buyer can step in without needing your exact skills every day","It cannot function without you","It makes no profit","It has no clients"],correct:0},
+      {q:"What is one major risk of scaling into an agency?",options:["You must cover high fixed payroll even in slow months","You never have any costs","You cannot hire staff","You are guaranteed constant demand"],correct:0},
+      {q:"Which statement best captures the upside of a successful agency model?",options:["Revenue can grow beyond your personal time limit, increasing long-term asset value","Revenue is capped at your own hours","You must lower prices forever","You lose all clients automatically"],correct:0}
+    ]
+  },
+  5:{
+    A:[
+      {q:"Asset valuation means estimating:",options:["What your business is worth if sold today","Your monthly rent","Only your tax payment","Your internet bill"],correct:0},
+      {q:"Selling the business for $400,000 is trading future uncertain profit for:",options:["A guaranteed lump-sum payout now","Unlimited future profit and ownership","Zero cash","Debt only"],correct:0},
+      {q:"Why might someone prefer to sell even if the business could earn more in the long run?",options:["They prefer lower risk and immediate liquidity (cash they can use)","They dislike having savings","They want more uncertainty","They cannot legally own money"],correct:0},
+      {q:"What is one downside of selling your business?",options:["You give up all future profits from that asset","You keep full control","You gain more equity","You still own the brand"],correct:0},
+      {q:"When negotiating a sale price, what factor can reduce your bargaining power?",options:["If the business cannot operate without you personally","If it runs smoothly without you","If profits are growing","If many buyers are competing"],correct:0},
+      {q:"This decision mainly compares:",options:["Ownership and future profit vs immediate capital (cash now)","Rent vs groceries","Interest vs taxes","Price vs color"],correct:0}
+    ],
+    B:[
+      {q:"Giving investors 20% of your company is an example of:",options:["Equity sharing (sharing ownership and future profits)","Paying a monthly salary","Taking a simple loan","Reducing rent"],correct:0},
+      {q:"Investors put in money because:",options:["They expect a return (profit) on their shares in the future","They must lose money by law","They are paying your taxes","They gain nothing from success"],correct:0},
+      {q:"If the business grows after investment, what happens to the value of your remaining 80% ownership?",options:["It becomes more valuable, even though you own a smaller percentage","It becomes worthless","It never changes","It is automatically sold"],correct:0},
+      {q:"What do you lose when you bring in outside investors?",options:["Some control over decisions and strategy","All revenue forever","Your personal skills","Your ability to work"],correct:0},
+      {q:"Why does investor pressure often push you to grow faster?",options:["They want a higher expected value of their stake in a shorter time","They want the business to close","They don't care about returns","They are required to keep it small"],correct:0},
+      {q:"What is a risk of taking equity investment too early?",options:["You may give up too large a share of a company that later becomes very valuable","You must pay no taxes","You lose all clients instantly","You can never grow again"],correct:0}
+    ],
+    C:[
+      {q:"Retaining 100% ownership means:",options:["You keep all profits and equity (ownership value)","You must share profits with investors","You can't make decisions","You have no legal rights"],correct:0},
+      {q:"A slow-but-steady growth path relies on which idea?",options:["Compounding \u2014 profits reinvested over time can grow total value","Sudden shutdown","Inflation only","Fixed, non-changing value"],correct:0},
+      {q:'Why might this be considered a "safe growth" option compared to taking investment?',options:["You avoid debt and external pressure to grow at any cost","You take on more debt","Investors control every decision","You must sell immediately"],correct:0},
+      {q:"What is a downside of refusing both a sale and investment?",options:["Growth may be slower because you lack extra capital","Growth is guaranteed to be faster","You lose all clients","You never need to work again"],correct:0},
+      {q:"In this strategy, what are you clearly prioritizing?",options:["Control and long-term independence","Short-term cash only","Giving away ownership","Maximum outside control"],correct:0},
+      {q:"As profits grow and you keep reinvesting, what happens to the asset value of your business?",options:["It tends to rise with sustained profitability","It must fall","It becomes impossible to sell","It instantly resets to zero"],correct:0}
+    ]
+  }
+};
+
+const FINAL_QUESTIONS = [
+  {q:"Expected value is best described as:",options:["The average outcome you would get over many similar tries","The worst possible outcome only","A guaranteed fixed result","Total income divided by tax rate"],correct:0},
+  {q:"Revenue sharing means:",options:["Splitting earnings from a project between parties","Keeping all earnings yourself","Paying a loan to a bank","Receiving a government grant"],correct:0},
+  {q:"Labor cost refers to:",options:["Money paid to workers for their time and effort","The cost of computers","The cost of internet","Taxes on profits"],correct:0},
+  {q:"Bargaining power means:",options:["How much influence you have over price and terms in a negotiation","Your ability to lift heavy weights","The size of your office","The number of emails you send"],correct:0},
+  {q:"Asset valuation is the process of:",options:["Estimating how much a business or asset is worth","Counting daily emails","Measuring how many hours you work","Setting your alarm clock"],correct:0},
+  {q:"Why is freelancing income often considered higher-risk than a salary?",options:["Client demand can change and pay isn't guaranteed","Freelancers can't raise prices","Freelancers never find clients","Salaries change every day"],correct:0},
+  {q:"A business that can make money even when the founder is not working directly is:",options:["More valuable as an asset","Less valuable as an asset","Not a business","Illegal"],correct:0},
+  {q:"Which is an example of scaling (growing output without equal growth in hours worked)?",options:["Selling a digital course many times after recording it once","Charging the same rate for fewer hours","Working more hours for the same pay","Doing more unpaid work"],correct:0},
+  {q:"Why do investors care about expected value of their investment?",options:["They want to know the average return they might get over time","They only care about worst-case losses","They only care about number of employees","They never consider risk"],correct:0},
+  {q:"If you take a lower guaranteed income today for a chance at much higher upside later, you are trading:",options:["Short-term security for long-term expected value","Long-term value for short-term security","Rent for groceries","Time for nothing"],correct:0},
+  {q:"What is opportunity cost?",options:["The value of the next best option you gave up","The money you keep in cash","Your tax refund","The number of hours you worked"],correct:0},
+  {q:"Why do exclusive contracts reduce your opportunity set?",options:["They prevent you from taking other projects during the contract","They let you take unlimited projects","They increase your available hours","They reduce your tax rate"],correct:0},
+  {q:"In labor economics, what does specialization mean?",options:["Focusing on a narrow set of tasks you are highly skilled at","Doing every task yourself","Working fewer hours for less pay","Changing jobs every day"],correct:0},
+  {q:"Which choice best describes equity?",options:["Ownership in an asset or business","A monthly salary","A tax payment","A loan you must repay"],correct:0},
+  {q:"Why do many founders eventually hire employees or contractors?",options:["To increase total output beyond what they can do alone","To work more hours themselves","To reduce revenue","To avoid managing anyone"],correct:0},
+  {q:"Having many potential clients instead of just one employer usually increases your:",options:["Bargaining power (more outside options)","Rent cost","Fixed utility bill","Number of bosses"],correct:0},
+  {q:"A business with high fixed costs but low variable costs per sale is most sensitive to:",options:["Changes in total sales volume","Number of colors in its logo","Its office chair material","Size of email inbox"],correct:0},
+  {q:"Why might a freelancer accept a lower rate from a prestigious client?",options:["The portfolio value and future opportunities can be worth more than the short-term pay cut","They do not value money","They cannot charge higher rates later","It is required by law"],correct:0},
+  {q:"What is one key danger of relying on a single large client for most of your income?",options:["If they leave, your income drops sharply","You have too many backups","Competition disappears","Your rent decreases automatically"],correct:0},
+  {q:"In a shared revenue model, a designer keeps 70% and the platform keeps 30%. What does this mean?",options:["For each dollar earned, the designer gets $0.70 and the platform gets $0.30","The platform gets 70%","The designer gets 100%","The government gets all income"],correct:0},
+  {q:"Passive income from digital products is best described as:",options:["Money earned with little ongoing active work after the product is created","Money earned only by hourly labor","Money borrowed from a friend","Illegal income"],correct:0},
+  {q:"Why can a business be valuable even if the founder plans to stop working there?",options:["If it has systems and people that continue to generate profit","Because value disappears when the founder leaves","Because it has nice logos only","Because taxes are low"],correct:0},
+  {q:"What is the main advantage of owning an asset that appreciates over time?",options:["Its value can grow without additional effort","It always loses value","It never changes in price","It must be sold immediately"],correct:0},
+  {q:"If two contracts have the same expected value but one has lower risk (less variation), which might a risk-averse person choose?",options:["The lower-risk contract","The higher-risk contract","Neither \u2014 they choose random","The one with the longest pages"],correct:0},
+  {q:"Which is an example of long-term compounding in a creative business?",options:["Reinvesting profits into better tools, training, and marketing each year","Spending all profits immediately","Cutting all investment in quality","Constantly starting from scratch"],correct:0},
+  {q:"Why is it risky to underprice your services for a long time?",options:["It anchors clients to low rates and reduces your long-term earnings","It guarantees you will earn more","It raises your bargaining power","It has no effect over time"],correct:0},
+  {q:"An entrepreneur who sells their company for a large lump sum is mostly gaining:",options:["Liquidity (cash they can use now)","Higher future ownership","Guaranteed monthly salary from the business","New debt"],correct:0},
+  {q:"Which best describes risk diversification?",options:["Spreading your income or investments across different clients or assets","Putting everything into one client","Avoiding contracts completely","Working fewer hours for the same client"],correct:0},
+  {q:"Why might a founder reject a buyout offer even if it is large?",options:["They believe the future value of staying independent is higher","They dislike having money","They must legally accept all offers","They cannot reinvest"],correct:0},
+  {q:"What key tradeoff is at the heart of many decisions in this simulation?",options:["Short-term stability vs long-term growth and upside","Color vs font choice","Number of emails vs text messages","Desktop vs laptop"],correct:0}
+];
+
+const CLAIM_CODES = ["BSC-ECO-1A7K","BSC-ECO-4Q9M","BSC-ECO-7Z2P","BSC-ECO-9L8D","BSC-ECO-5W3X"];
+
+// ==================== UTILITIES ====================
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+  return a;
+}
+
+function randomizeQuestion(qObj){
+  // Build indexed options, shuffle, track where correct answer landed
+  const indices=[0,1,2,3];
+  const shuffled=shuffle(indices);
+  const newOptions=shuffled.map(i=>qObj.options[i]);
+  const newCorrect=shuffled.indexOf(qObj.correct);
+  return{q:qObj.q,options:newOptions,correct:newCorrect};
+}
+
+function selectRandom(arr,count){
+  return shuffle(arr).slice(0,count);
+}
+
+// ==================== SCREEN NAVIGATION ====================
+function goToScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const target=document.getElementById(id);
+  if(target){target.classList.add('active');state.currentScreen=id}
+  window.scrollTo({top:0,behavior:'smooth'});
+  updateProgress();
+
+  // Load final quiz when entering final screen
+  if(id==='screen-final') loadFinalQuiz();
+}
+
+// ==================== START ====================
+function startSimulation(){
+  const emailInput=document.getElementById('email-input');
+  const email=emailInput.value.trim();
+  if(!email||!email.includes('@')){
+    emailInput.style.borderColor='var(--danger)';
+    emailInput.focus();
+    setTimeout(()=>emailInput.style.borderColor='',2000);
+    return;
+  }
+  state.email=email;
+  goToScreen('screen-ch1');
+}
+
+// ==================== PROGRESS ====================
+function updateProgress(){
+  const passedCount=Object.values(state.chaptersPassed).filter(Boolean).length;
+  const finalDone=state.finalPassed?1:0;
+  const total=passedCount+finalDone;
+  const pct=Math.round((total/6)*100);
+  document.getElementById('progress-pct').textContent=pct+'%';
+  document.getElementById('progress-fill').style.width=pct+'%';
+
+  document.querySelectorAll('.progress-step').forEach(el=>{
+    const step=parseInt(el.dataset.step);
+    el.classList.remove('completed','active');
+    if(step===0){el.classList.add('completed')}
+    else if(step<=5){
+      if(state.chaptersPassed[step]) el.classList.add('completed');
+      else if(state.currentScreen===`screen-ch${step}`) el.classList.add('active');
+    }else if(step===6){
+      if(state.finalPassed) el.classList.add('completed');
+      else if(state.currentScreen==='screen-final') el.classList.add('active');
+    }
+  });
+
+  // Update stats on final screen
+  document.getElementById('stat-chapters').textContent=passedCount+'/5';
+  document.getElementById('stat-questions').textContent=state.totalAnswered;
+  const acc=state.totalAnswered>0?Math.round((state.totalCorrect/state.totalAnswered)*100):0;
+  document.getElementById('stat-accuracy').textContent=acc+'%';
+}
+
+// ==================== CHOICE SELECTION ====================
+function selectChoice(chapter,choice,el){
+  // If quiz already loaded, don't allow change
+  if(document.querySelector(`#quiz-ch${chapter} .question-card`)) return;
+
+  const container=document.getElementById(`choices-ch${chapter}`);
+  container.querySelectorAll('.choice-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.chapters[chapter]=choice;
+
+  // Show outcome
+  const outcomeBox=document.getElementById(`outcome-ch${chapter}`);
+  const outcomeText=OUTCOMES[chapter][choice];
+  outcomeBox.innerHTML=`<h3>What Happens:</h3><p>${outcomeText}</p>`;
+  outcomeBox.classList.add('visible');
+
+  // Load questions after a brief moment
+  setTimeout(()=>loadChapterQuiz(chapter,choice),400);
+}
+
+// ==================== LOAD CHAPTER QUIZ ====================
+function loadChapterQuiz(chapter,choice){
+  const container=document.getElementById(`quiz-ch${chapter}`);
+  const bank=CHAPTER_QUESTIONS[chapter][choice];
+  const selected=selectRandom(bank,5);
+  const questions=selected.map(q=>randomizeQuestion(q));
+
+  let html=`
+    <div class="quiz-header">
+      <h3>Knowledge Check</h3>
+      <span class="quiz-score-badge" id="score-badge-ch${chapter}">0 / 5</span>
+    </div>
+  `;
+
+  questions.forEach((q,idx)=>{
+    const labels=['A','B','C','D'];
+    html+=`
+      <div class="question-card" id="qcard-ch${chapter}-${idx}">
+        <div class="question-number">Question ${idx+1} of 5</div>
+        <div class="question-text">${q.q}</div>
+        <div class="options-list">
+    `;
+    q.options.forEach((opt,oi)=>{
+      html+=`
+        <button class="option-btn" data-chapter="${chapter}" data-q="${idx}" data-opt="${oi}" data-correct="${q.correct}" onclick="answerQuestion(this)">
+          <span class="option-letter">${labels[oi]}</span>
+          <span>${opt}</span>
+        </button>
+      `;
+    });
+    html+=`</div></div>`;
+  });
+
+  container.innerHTML=html;
+  container.classList.add('visible');
+
+  // Store for scoring
+  container.dataset.totalCorrect='0';
+  container.dataset.totalAnswered='0';
+}
+
+// ==================== ANSWER QUESTION ====================
+function answerQuestion(btn){
+  const card=btn.closest('.question-card');
+  if(card.classList.contains('answered-correct')||card.classList.contains('answered-wrong')) return;
+
+  const ch=parseInt(btn.dataset.chapter);
+  const qIdx=parseInt(btn.dataset.q);
+  const optIdx=parseInt(btn.dataset.opt);
+  const correctIdx=parseInt(btn.dataset.correct);
+
+  // Disable all options in this question
+  card.querySelectorAll('.option-btn').forEach(b=>b.disabled=true);
+
+  state.totalAnswered++;
+
+  if(optIdx===correctIdx){
+    btn.classList.add('correct');
+    card.classList.add('answered-correct');
+    state.totalCorrect++;
+
+    const container=btn.closest('.quiz-section');
+    container.dataset.totalCorrect=parseInt(container.dataset.totalCorrect)+1;
+  }else{
+    btn.classList.add('wrong');
+    card.classList.add('answered-wrong');
+    // Highlight correct answer
+    card.querySelectorAll('.option-btn').forEach(b=>{
+      if(parseInt(b.dataset.opt)===correctIdx) b.classList.add('correct');
+    });
+  }
+
+  const container=btn.closest('.quiz-section');
+  container.dataset.totalAnswered=parseInt(container.dataset.totalAnswered)+1;
+
+  // Update score badge
+  const isFinal=container.id==='quiz-final';
+  const totalQ=isFinal?10:5;
+  const answered=parseInt(container.dataset.totalAnswered);
+  const correct=parseInt(container.dataset.totalCorrect);
+
+  if(!isFinal){
+    document.getElementById(`score-badge-ch${ch}`).textContent=`${correct} / ${totalQ}`;
+  }else{
+    document.getElementById('score-badge-final').textContent=`${correct} / ${totalQ}`;
+  }
+
+  // Check if all answered
+  if(answered===totalQ){
+    if(isFinal){
+      finishFinalCheck(correct);
+    }else{
+      finishChapter(ch,correct);
+    }
+  }
+
+  updateProgress();
+}
+
+// ==================== FINISH CHAPTER ====================
+function finishChapter(chapter,correct){
+  const passed=correct>=4;
+  state.chapterScores[chapter]=correct;
+  state.chaptersPassed[chapter]=passed;
+
+  const banner=document.getElementById(`result-ch${chapter}`);
+  if(passed){
+    banner.className='result-banner visible pass';
+    banner.innerHTML=`<h3>Chapter ${chapter} Passed!</h3><p>Score: ${correct}/5 &mdash; You need 4/5 to pass. Great work!</p>`;
+  }else{
+    banner.className='result-banner visible fail';
+    banner.innerHTML=`<h3>Not Quite...</h3><p>Score: ${correct}/5 &mdash; You need at least 4/5 to pass. Try again!</p>`;
+  }
+
+  const navRow=document.getElementById(`nav-ch${chapter}`);
+  navRow.style.display='flex';
+
+  if(passed){
+    const nextBtn=document.getElementById(`next-ch${chapter}`);
+    nextBtn.disabled=false;
+  }
+
+  updateProgress();
+}
+
+// ==================== RETRY CHAPTER ====================
+function retryChapter(chapter){
+  state.chaptersPassed[chapter]=false;
+  state.chapterScores[chapter]=0;
+  state.chapters[chapter]=null;
+
+  // Reset UI
+  const container=document.getElementById(`choices-ch${chapter}`);
+  container.querySelectorAll('.choice-card').forEach(c=>c.classList.remove('selected'));
+
+  document.getElementById(`outcome-ch${chapter}`).classList.remove('visible');
+  document.getElementById(`outcome-ch${chapter}`).innerHTML='';
+
+  const quiz=document.getElementById(`quiz-ch${chapter}`);
+  quiz.innerHTML='';
+  quiz.classList.remove('visible');
+
+  const banner=document.getElementById(`result-ch${chapter}`);
+  banner.className='result-banner';
+  banner.innerHTML='';
+
+  const navRow=document.getElementById(`nav-ch${chapter}`);
+  navRow.style.display='none';
+
+  const nextBtn=document.getElementById(`next-ch${chapter}`);
+  if(nextBtn) nextBtn.disabled=true;
+
+  window.scrollTo({top:0,behavior:'smooth'});
+  updateProgress();
+}
+
+// ==================== LOAD FINAL QUIZ ====================
+function loadFinalQuiz(){
+  const container=document.getElementById('quiz-final');
+  if(container.querySelector('.question-card')) return; // already loaded
+
+  const selected=selectRandom(FINAL_QUESTIONS,10);
+  const questions=selected.map(q=>randomizeQuestion(q));
+
+  let html=`
+    <div class="quiz-header">
+      <h3>Final Assessment</h3>
+      <span class="quiz-score-badge" id="score-badge-final">0 / 10</span>
+    </div>
+  `;
+
+  questions.forEach((q,idx)=>{
+    const labels=['A','B','C','D'];
+    html+=`
+      <div class="question-card" id="qcard-final-${idx}">
+        <div class="question-number">Question ${idx+1} of 10</div>
+        <div class="question-text">${q.q}</div>
+        <div class="options-list">
+    `;
+    q.options.forEach((opt,oi)=>{
+      html+=`
+        <button class="option-btn" data-chapter="final" data-q="${idx}" data-opt="${oi}" data-correct="${q.correct}" onclick="answerQuestion(this)">
+          <span class="option-letter">${labels[oi]}</span>
+          <span>${opt}</span>
+        </button>
+      `;
+    });
+    html+=`</div></div>`;
+  });
+
+  container.innerHTML=html;
+  container.dataset.totalCorrect='0';
+  container.dataset.totalAnswered='0';
+}
+
+// ==================== FINISH FINAL CHECK ====================
+function finishFinalCheck(correct){
+  const passed=correct>=7;
+  state.finalScore=correct;
+  state.finalPassed=passed;
+
+  const allChapters=Object.values(state.chaptersPassed).every(Boolean);
+
+  const banner=document.getElementById('result-final');
+  if(passed&&allChapters){
+    banner.className='result-banner visible pass';
+    banner.innerHTML=`<h3>Assessment Passed!</h3><p>Score: ${correct}/10 &mdash; All chapters complete. Generating your claim code...</p>`;
+    setTimeout(()=>showCompletion(),1500);
+  }else if(passed&&!allChapters){
+    banner.className='result-banner visible fail';
+    banner.innerHTML=`<h3>Assessment Passed, But...</h3><p>Score: ${correct}/10 &mdash; You still need to pass all 5 chapters before earning your claim code.</p>`;
+  }else{
+    banner.className='result-banner visible fail';
+    banner.innerHTML=`<h3>Not Quite...</h3><p>Score: ${correct}/10 &mdash; You need at least 7/10 to pass. Try again!</p>`;
+  }
+
+  const navRow=document.getElementById('nav-final');
+  navRow.style.display='flex';
+  updateProgress();
+}
+
+// ==================== RETRY FINAL ====================
+function retryFinal(){
+  state.finalPassed=false;
+  state.finalScore=0;
+
+  const container=document.getElementById('quiz-final');
+  container.innerHTML='';
+
+  const banner=document.getElementById('result-final');
+  banner.className='result-banner';
+  banner.innerHTML='';
+
+  document.getElementById('nav-final').style.display='none';
+  loadFinalQuiz();
+  window.scrollTo({top:0,behavior:'smooth'});
+  updateProgress();
+}
+
+// ==================== COMPLETION ====================
+function showCompletion(){
+  const code=CLAIM_CODES[Math.floor(Math.random()*CLAIM_CODES.length)];
+  document.getElementById('claim-code').textContent=code;
+
+  // Build summary
+  const choiceNames={
+    1:{A:'Full-Time Job',B:'Agency Contract',C:'Independent + Junior'},
+    2:{A:'Freelance Platform',B:'Creative Collective',C:'Solo + Admin'},
+    3:{A:'Exclusive Deal',B:'Negotiate Terms',C:'Stay Independent'},
+    4:{A:'Hire Staff',B:'License Templates',C:'Build Agency'},
+    5:{A:'Sell Business',B:'Take Investors',C:'Stay Independent'}
+  };
+
+  let rows='';
+  for(let i=1;i<=5;i++){
+    const ch=state.chapters[i];
+    const name=ch?choiceNames[i][ch]:'N/A';
+    const score=state.chapterScores[i];
+    rows+=`<tr><td>Chapter ${i}</td><td>${name} &mdash; ${score}/5</td></tr>`;
+  }
+  rows+=`<tr><td>Final Check</td><td>${state.finalScore}/10</td></tr>`;
+  rows+=`<tr><td>Overall Accuracy</td><td>${state.totalAnswered>0?Math.round((state.totalCorrect/state.totalAnswered)*100):0}%</td></tr>`;
+  document.getElementById('summary-table').innerHTML=rows;
+
+  goToScreen('screen-complete');
+  launchConfetti();
+}
+
+// ==================== RESTART ====================
+function restartSimulation(){
+  Object.assign(state,{
+    currentScreen:'screen-welcome',
+    chapters:{1:null,2:null,3:null,4:null,5:null},
+    chaptersPassed:{1:false,2:false,3:false,4:false,5:false},
+    chapterScores:{1:0,2:0,3:0,4:0,5:0},
+    finalPassed:false,finalScore:0,totalCorrect:0,totalAnswered:0
+  });
+
+  // Reset all chapter UIs
+  for(let i=1;i<=5;i++) retryChapter(i);
+
+  // Reset final
+  document.getElementById('quiz-final').innerHTML='';
+  document.getElementById('result-final').className='result-banner';
+  document.getElementById('result-final').innerHTML='';
+  document.getElementById('nav-final').style.display='none';
+
+  goToScreen('screen-welcome');
+}
+
+// ==================== CONFETTI ====================
+function launchConfetti(){
+  const canvas=document.getElementById('confetti-canvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+
+  const particles=[];
+  const colors=['#f59e0b','#10b981','#305496','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
+
+  for(let i=0;i<150;i++){
+    particles.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height-canvas.height,
+      w:Math.random()*10+5,
+      h:Math.random()*6+3,
+      color:colors[Math.floor(Math.random()*colors.length)],
+      vx:(Math.random()-0.5)*3,
+      vy:Math.random()*3+2,
+      rot:Math.random()*360,
+      rotSpeed:(Math.random()-0.5)*10
+    });
+  }
+
+  let frame=0;
+  function animate(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;p.rot+=p.rotSpeed;
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.color;
+      ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+      ctx.restore();
+    });
+    frame++;
+    if(frame<200) requestAnimationFrame(animate);
+    else ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  animate();
+}
+
+// Init
+updateProgress();
+</script>
+</body>
+</html>
