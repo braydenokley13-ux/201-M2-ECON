@@ -1,0 +1,2403 @@
+/***********************************************************
+ * BOW SPORTS CAPITAL — ECON SIMULATION
+ * PART 1 — FULL SHEET SETUP VIA "Setup Simulation"
+ *
+ * What this script does:
+ *  - Adds a "Bow Sports Simulation" menu with "Setup Simulation"
+ *  - Creates sheets:
+ *      Setup, Chapter 1–5, Final Check, StudentData, SystemLog
+ *  - Lays out:
+ *      • Narrative area per chapter (Option B)
+ *      • Choice cell at B6
+ *      • Outcome area in A8–A9
+ *      • 5 question slots per chapter (rows 12,16,20,24,28)
+ *      • 10 question slots in Final Check
+ *      • Score & Result cells
+ *  - Hides StudentData + SystemLog
+ *
+ * NO GAME LOGIC YET:
+ *  - No question banks
+ *  - No scoring
+ *  - No emails
+ * These will be added as Part 2+ blocks later.
+ ************************************************************/
+
+/******************** GLOBAL CONSTANTS *********************/
+const COLOR_PRIMARY   = "#305496";   // dark blue
+const COLOR_SECONDARY = "#ecf0f1";   // light gray
+const COLOR_WHITE     = "#ffffff";
+// 🧱 Column indexes (1 = A, 2 = B, etc.)
+
+const SHEET_SETUP     = "Setup";
+const SHEET_FINAL     = "Final Check";
+const SHEET_STUDENT   = "StudentData";
+const SHEET_SYSTEMLOG = "SystemLog";
+
+const CHAPTER_SHEETS = [
+  "Chapter 1",
+  "Chapter 2",
+  "Chapter 3",
+  "Chapter 4",
+  "Chapter 5"
+];
+
+// Chapter question rows (5 questions)
+const CHAPTER_Q_ROWS = [12, 16, 20, 24, 28];
+// Final check question rows (10 questions)
+
+
+// Columns
+const COL_Q_TEXT    = 1; // A
+const COL_Q_OPTIONS = 2; // B
+const COL_Q_ANSWER  = 3; // C
+const COL_Q_CORRECT = 4; // D (reserved for correct answer later)
+const COL_Q_ID      = 5; // E (reserved for question ID later)
+const FINAL_Q_ROWS = [6, 10, 14, 18, 22, 26, 30, 34, 38, 42]; // or whatever rows you use
+
+/******************** SIMPLE UTILITIES *********************/
+function timestamp_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+}
+
+function getOrCreateSheet_(name) {
+  const ss = SpreadsheetApp.getActive();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  return sheet;
+}
+
+/******************** MENU *******************************/
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("Bow Sports Simulation")
+    .addItem("Setup Simulation", "setupSimulation")
+    .addToUi();  // Run/Check options will be added in Part 2+
+}
+
+/***********************************************************
+ * MASTER SETUP — BUILDS EVERY SHEET + LAYOUT
+ ***********************************************************/
+function setupSimulation() {
+  const ss = SpreadsheetApp.getActive();
+
+  // 1) Ensure main sheets exist
+  getOrCreateSheet_(SHEET_SETUP);
+  CHAPTER_SHEETS.forEach(name => getOrCreateSheet_(name));
+  getOrCreateSheet_(SHEET_FINAL);
+  getOrCreateSheet_(SHEET_STUDENT);
+  getOrCreateSheet_(SHEET_SYSTEMLOG);
+
+  // 2) Lay out each sheet
+  setupSetupTab_();
+  setupChaptersLayout_();      // Chapter 1–5, with narrative + questions
+  setupFinalCheckLayout_();    // Final Check, 10 questions
+  setupStudentDataLayout_();   // StudentData headers
+  setupSystemLogLayout_();     // SystemLog headers
+
+  // 3) Apply formatting + hide backend
+  applyBasicFormatting_();
+  hideBackendSheets_();
+
+  SpreadsheetApp.getActive().toast(
+    "Simulation sheets created & formatted. Next: we'll wire in questions, scoring, and emails in Part 2+.",
+    "Setup Complete",
+    6
+  );
+}
+
+/***********************************************************
+ * SETUP SHEET: “Setup”
+ ***********************************************************/
+function setupSetupTab_() {
+  const sheet = getOrCreateSheet_(SHEET_SETUP);
+  sheet.clear();
+
+  sheet.getRange("A1").setValue("Bow Sports Capital — Module 2: Economics Simulation Setup");
+  sheet.getRange("A3").setValue("Use the menu: Bow Sports Simulation → Setup Simulation to rebuild the layout.");
+  sheet.getRange("A5").setValue("Student Email (will be captured by script later):");
+  sheet.getRange("B5").setValue("");
+  sheet.getRange("A7").setValue("Simulation Status:");
+  sheet.getRange("B7").setValue("Base layout created (sheets + structure).");
+}
+
+/***********************************************************
+ * CHAPTER LAYOUTS (1–5) — OPTION B STYLE
+ ***********************************************************/
+function setupChaptersLayout_() {
+  CHAPTER_SHEETS.forEach((name, index) => {
+    const chapterNum = index + 1;
+    const sheet = getOrCreateSheet_(name);
+    setupSingleChapterLayout_(sheet, chapterNum);
+    
+  });
+}
+
+function setupSingleChapterLayout_(sheet, chapterNum) {
+  sheet.clear();
+
+  // ====== Title ======
+  sheet.getRange("A1").setValue("Chapter " + chapterNum + " – Economics Simulation");
+
+  // ====== Narrative (full story text inserted here) ======
+  const narrative = getChapterNarrative_(chapterNum);
+  sheet.getRange("A3").setValue("Chapter Narrative:");
+  sheet.getRange("A4").setValue(narrative);
+
+  // ====== Choice ======
+  sheet.getRange("A6").setValue("Your Strategy Choice (A / B / C):");
+  sheet.getRange("B6").setValue(""); // student choice cell (we'll read this later in logic)
+
+  // ====== Outcome area ======
+  sheet.getRange("A8").setValue("Outcome (based on your choice):");
+  sheet.getRange("A9").setValue("(Will be filled by script when logic is added.)");
+
+  // ====== Question section headers ======
+  sheet.getRange("A11").setValue("Questions (5 for this chapter):");
+  sheet.getRange("A12").setValue("Question");
+  sheet.getRange("B12").setValue("Answer Choices (A / B / C / D) — stacked in one cell");
+  sheet.getRange("C12").setValue("Your Answer (A/B/C/D)");
+  // D = correct answer (hidden later); E = question ID (hidden later)
+
+  // ====== Create the 5 question rows ======
+  CHAPTER_Q_ROWS.forEach(row => {
+    sheet.getRange(row, COL_Q_TEXT).setValue("");    // question text
+    sheet.getRange(row, COL_Q_OPTIONS).setValue(""); // stacked choices
+    sheet.getRange(row, COL_Q_ANSWER).setValue("");  // student answer
+    sheet.getRange(row, COL_Q_CORRECT).setValue(""); // reserved for correct answer
+    sheet.getRange(row, COL_Q_ID).setValue("");      // reserved for question ID
+  });
+
+  // ====== Score area ======
+  sheet.getRange("A25").setValue("Score:");
+  sheet.getRange("B25").setValue("");
+  sheet.getRange("A27").setValue("Result (PASS/FAIL):");
+  sheet.getRange("B27").setValue("");
+
+  // Column widths
+  sheet.setColumnWidths(1, 1, 380); // question text
+  sheet.setColumnWidth(2, 320);     // stacked options
+  sheet.setColumnWidth(3, 120);     // student answer
+  hideAnswerColumns_(sheet);
+}
+
+/***********************************************************
+ * INSERT NARRATIVE FOR EACH CHAPTER (Option B text)
+ ***********************************************************/
+function getChapterNarrative_(chapterNum) {
+  const choices = getPastChoices_();
+
+  switch (chapterNum) {
+    case 1:
+      return (
+        "You're at the start of your creative business journey and need to choose your first major direction:\n\n" +
+        "A) Take a full-time job at a startup (stable salary, benefits, less control)\n" +
+        "B) Sign a 6-month contract with a creative agency (moderate stability, revenue share)\n" +
+        "C) Stay independent and hire a junior designer (risky but scalable growth path)"
+      );
+
+    case 2:
+      return (
+        "You're growing and looking for better systems or partners to handle the workload:\n\n" +
+        "A) Join a freelance platform (get steady gigs, but pay platform fees)\n" +
+        "B) Form a creative collective (share income and clients with others)\n" +
+        "C) Stay solo but hire admin help (maximize margin, stay in control)"
+      );
+
+    case 3:
+      return (
+        "A big client offers an exclusive 1-year contract — what do you do?\n\n" +
+        "A) Accept the exclusive deal (high stability, no side clients)\n" +
+        "B) Negotiate better terms (keep some freedom, earn bonuses)\n" +
+        "C) Decline and keep building your brand (retain full independence)"
+      );
+
+    case 4:
+      return (
+        "You're scaling up and deciding how to grow:\n\n" +
+        "A) Hire support staff (more overhead, more capacity)\n" +
+        "B) Build and license templates (scalable product income)\n" +
+        "C) Build an agency (manage a team, aim for long-term value)"
+      );
+
+    case 5:
+      return (
+        "You’ve built a successful business. What's your endgame?\n\n" +
+        "A) Sell the business for a lump sum (exit and cash out)\n" +
+        "B) Take on investors to grow faster (dilute ownership, scale bigger)\n" +
+        "C) Stay fully independent and let value compound over time"
+      );
+
+    default:
+      return "You're facing a new chapter in your creative business journey.";
+  }
+}
+
+
+/***********************************************************
+ * FINAL CHECK LAYOUT — 10 QUESTIONS
+ ***********************************************************/
+function setupFinalCheckLayout_() {
+  const sheet = getOrCreateSheet_(SHEET_FINAL);
+  sheet.clear();
+
+  sheet.getRange("A1").setValue("Final Check — 10-Question Assessment");
+  sheet.getRange("A3").setValue("After passing Chapters 1–5, you’ll answer 10 questions on the core concepts.");
+
+  sheet.getRange("A5").setValue("Question");
+  sheet.getRange("B5").setValue("Answer Choices (A/B/C/D) — stacked");
+  sheet.getRange("C5").setValue("Your Answer (A/B/C/D)");
+
+  FINAL_Q_ROWS.forEach(row => {
+    sheet.getRange(row, COL_Q_TEXT).setValue("");
+    sheet.getRange(row, COL_Q_OPTIONS).setValue("");
+    sheet.getRange(row, COL_Q_ANSWER).setValue("");
+    sheet.getRange(row, COL_Q_CORRECT).setValue("");
+    sheet.getRange(row, COL_Q_ID).setValue("");
+  });
+
+  sheet.getRange("A37").setValue("Score:");
+  sheet.getRange("B37").setValue("");
+  sheet.getRange("A39").setValue("Result (PASS/FAIL):");
+  sheet.getRange("B39").setValue("");
+
+  sheet.setColumnWidths(1, 1, 380);
+  sheet.setColumnWidth(2, 320);
+  sheet.setColumnWidth(3, 120);
+}
+
+/***********************************************************
+ * STUDENTDATA LAYOUT
+ ***********************************************************/
+function setupStudentDataLayout_() {
+  const sheet = getOrCreateSheet_(SHEET_STUDENT);
+  sheet.clear();
+
+  sheet.getRange(1, 1, 1, 9).setValues([[
+    "Timestamp",
+    "Email",
+    "Type (Chapter / Final / Complete)",
+    "Choice / ChoiceSummary",
+    "Score / ScoreSummary",
+    "Correct Questions",
+    "Incorrect Questions",
+    "FinalCheckScore",
+    "ClaimCode"
+  ]]);
+}
+
+/***********************************************************
+ * SYSTEMLOG LAYOUT
+ ***********************************************************/
+function setupSystemLogLayout_() {
+  const sheet = getOrCreateSheet_(SHEET_SYSTEMLOG);
+  sheet.clear();
+
+  sheet.getRange(1, 1, 1, 3).setValues([[
+    "Timestamp",
+    "Event",
+    "Details"
+  ]]);
+}
+
+/***********************************************************
+ * BASIC FORMATTING + HIDING BACKEND
+ ***********************************************************/
+function applyBasicFormatting_() {
+  const ss = SpreadsheetApp.getActive();
+
+  // Setup sheet styling
+  const setup = ss.getSheetByName(SHEET_SETUP);
+  if (setup) {
+    setup.setTabColor(COLOR_PRIMARY);
+    setup.getRange("A1")
+      .setFontSize(16)
+      .setFontWeight("bold")
+      .setBackground(COLOR_PRIMARY)
+      .setFontColor(COLOR_WHITE);
+    setup.getRange("A3:A7").setFontWeight("bold");
+  }
+
+  // Chapters styling
+  CHAPTER_SHEETS.forEach(name => {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet) return;
+
+    sheet.setTabColor(COLOR_PRIMARY);
+
+    sheet.getRange("A1")
+      .setFontSize(14)
+      .setFontWeight("bold")
+      .setBackground(COLOR_PRIMARY)
+      .setFontColor(COLOR_WHITE);
+
+    sheet.getRange("A3").setFontWeight("bold");
+    sheet.getRange("A6").setFontWeight("bold");
+    sheet.getRange("A8").setFontWeight("bold");
+    sheet.getRange("A11").setFontWeight("bold");
+    sheet.getRange("A12:C12").setFontWeight("bold").setBackground("#dde6f5");
+  });
+
+  // Final Check styling
+  const finalSheet = ss.getSheetByName(SHEET_FINAL);
+  if (finalSheet) {
+    finalSheet.setTabColor(COLOR_PRIMARY);
+    finalSheet.getRange("A1")
+      .setFontSize(14)
+      .setFontWeight("bold")
+      .setBackground(COLOR_PRIMARY)
+      .setFontColor(COLOR_WHITE);
+    finalSheet.getRange("A3").setFontWeight("bold");
+    finalSheet.getRange("A5:C5").setFontWeight("bold").setBackground("#dde6f5");
+  }
+
+  // StudentData styling
+  const student = ss.getSheetByName(SHEET_STUDENT);
+  if (student) {
+    student.setTabColor("#999999");
+    student.getRange("A1:I1").setFontWeight("bold").setBackground("#eeeeee");
+  }
+
+  // SystemLog styling
+  const sys = ss.getSheetByName(SHEET_SYSTEMLOG);
+  if (sys) {
+    sys.setTabColor("#999999");
+    sys.getRange("A1:C1").setFontWeight("bold").setBackground("#eeeeee");
+  }
+}
+
+/***********************************************************
+ * HIDE BACKEND SHEETS
+ ***********************************************************/
+function hideBackendSheets_() {
+  const ss = SpreadsheetApp.getActive();
+  const student = ss.getSheetByName(SHEET_STUDENT);
+  const sys = ss.getSheetByName(SHEET_SYSTEMLOG);
+
+  if (student) student.hideSheet();
+  if (sys) sys.hideSheet();
+}
+/***********************************************************
+ * PART 2 — MENU + EMAIL CAPTURE + BASIC RUN/CHECK LOGIC
+ ***********************************************************/
+
+/*********************** EMAIL HANDLING ************************/
+
+/**
+ * Prompts the user for their email once and stores it
+ * in Document Properties + displays it on Setup sheet.
+ */
+function getUserEmail_() {
+  const props = PropertiesService.getDocumentProperties();
+  let email = props.getProperty("UserEmail");
+
+  if (!email) {
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.prompt(
+      "Enter Your Email",
+      "Please enter the email you want results sent to:",
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (response.getSelectedButton() !== ui.Button.OK) {
+      throw new Error("Email is required to continue.");
+    }
+
+    email = response.getResponseText().trim();
+    if (!email) throw new Error("Email cannot be empty.");
+
+    props.setProperty("UserEmail", email);
+
+    // Display on Setup sheet
+    const setupSheet = SpreadsheetApp.getActive().getSheetByName("Setup");
+    setupSheet.getRange("B5").setValue(email);
+  }
+
+  return email;
+}
+
+/*********************** MENU EXTENSION ************************/
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("Bow Sports Simulation")
+    .addItem("Setup Simulation", "setupSimulation")
+    .addSeparator()
+
+    .addItem("Run Chapter 1", "runChapter1")
+    .addItem("Check Chapter 1", "checkChapter1")
+    .addSeparator()
+
+    .addItem("Run Chapter 2", "runChapter2")
+    .addItem("Check Chapter 2", "checkChapter2")
+    .addSeparator()
+
+    .addItem("Run Chapter 3", "runChapter3")
+    .addItem("Check Chapter 3", "checkChapter3")
+    .addSeparator()
+
+    .addItem("Run Chapter 4", "runChapter4")
+    .addItem("Check Chapter 4", "checkChapter4")
+    .addSeparator()
+
+    .addItem("Run Chapter 5", "runChapter5")
+    .addItem("Check Chapter 5", "checkChapter5")
+    .addSeparator()
+
+    .addItem("Run Final Check", "runFinalCheck")
+    .addItem("Check Final Check", "checkFinalCheck")
+
+    .addToUi();
+}
+
+/*********************** BASIC RUN CHAPTER LOGIC ************************/
+
+function runChapter_(chapterNum) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName("Chapter " + chapterNum);
+
+  getUserEmail_(); // force email capture
+
+  const choice = sheet.getRange("B6").getValue().toString().trim().toUpperCase();
+  if (!["A", "B", "C"].includes(choice)) {
+    SpreadsheetApp.getUi().alert("Please choose A, B, or C in cell B6 before running the chapter.");
+    return;
+  }
+  // ✅ Show the dynamic narrative
+  sheet.getRange("A4").setValue(getChapterNarrative_(chapterNum));
+
+  // ✅ Show outcome text in cell A9
+  const outcome = CHAPTER_OUTCOMES[chapterNum] && CHAPTER_OUTCOMES[chapterNum][choice];
+  sheet.getRange("A9").setValue(outcome || "(Outcome not defined yet.)");
+
+  // ✅ Load 5 randomized multiple choice questions
+  const questions = getRandomChapterQuestions_(chapterNum, choice);
+  CHAPTER_Q_ROWS.forEach((row, idx) => {
+    const qObj = randomizeOptions_(questions[idx]);
+
+    sheet.getRange(row, COL_Q_TEXT).setValue(qObj.q);
+    sheet.getRange(row, COL_Q_OPTIONS).setValue(qObj.options);
+
+    const ansCell = sheet.getRange(row, COL_Q_ANSWER);
+    clearDataValansCell.idations();
+    ansCell.setValue("");
+    ansCell.setDataValidation(
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(["A", "B", "C", "D"], true)
+        .setAllowInvalid(false)
+        .build()
+    );
+
+    sheet.getRange(row, COL_Q_CORRECT).setValue(qObj.correct);
+    sheet.getRange(row, COL_Q_ID).setValue("CH" + chapterNum + "_" + choice + "_" + (idx + 1));
+  });
+
+  // ✅ Clear previous score
+  sheet.getRange("B25").setValue("");
+  sheet.getRange("B27").setValue("");
+
+  hideAnswerColumns_(sheet);
+  SpreadsheetApp.getActive().toast("Chapter " + chapterNum + " questions loaded.", "Ready", 4);
+}
+/*********************** BASIC CHECK CHAPTER LOGIC ************************/
+
+function checkChapter_(chapterNum) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName("Chapter " + chapterNum);
+
+  // Ensure all questions answered
+  const allAnswered = CHAPTER_Q_ROWS.every(row => {
+    const val = sheet.getRange(row, COL_Q_ANSWER).getValue().toString().trim().toUpperCase();
+    return ["A", "B", "C", "D"].includes(val);
+  });
+
+  if (!allAnswered) {
+    SpreadsheetApp.getUi().alert("Please answer all questions before checking.");
+    return;
+  }
+
+  // Placeholder scoring (real scoring added in Part 4)
+  sheet.getRange("B25").setValue("0 / 5");
+  sheet.getRange("B27").setValue("Incomplete — scoring added in Part 4");
+
+  SpreadsheetApp.getActive().toast("Chapter " + chapterNum + " checked.", "Complete", 3);
+}
+
+/*********************** FINAL CHECK RUN ************************/
+function runFinalCheck() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Final Check");
+
+  // ✅ Ensure user email is stored (for tracking/progress/etc.)
+  getUserEmail_();
+
+  // ✅ Get 10 final randomized questions
+  const questions = getRandomFinalQuestions_();
+
+  // ✅ Populate questions into the defined rows
+  FINAL_Q_ROWS.forEach((row, idx) => {
+    const qObj = randomizeOptions_(questions[idx]);
+
+    // 🔹 Set question text in column A
+    sheet.getRange(row, COL_Q_TEXT).setValue(qObj.q);
+
+    // 🔹 Set answer choices in column B (stacked ABCD)
+    sheet.getRange(row, COL_Q_OPTIONS).setValue(qObj.options);
+
+    // ✅ Get reference to student answer cell (column C)
+    const ansCell = sheet.getRange(row, COL_Q_ANSWER);
+    ansCell.clearContent();             // Clear any previous input
+
+
+    // 📝 Add a helper note
+    ansCell.setNote("Select your answer from the dropdown (A–D only).");
+
+    // 🔐 Store the correct answer and question ID (to hidden columns D & E)
+    sheet.getRange(row, COL_Q_CORRECT).setValue(qObj.correct); // D
+    sheet.getRange(row, COL_Q_ID).setValue("FQ_" + (idx + 1)); // E
+  });
+
+  // 🧹 Clear old score/output fields
+  sheet.getRange("B37").clearContent();
+  sheet.getRange("B39").clearContent();
+
+  // 🔒 Hide answer and ID columns (D and E)
+  try {
+    sheet.hideColumns(COL_Q_CORRECT, 2); // Columns 4 (D) + 5 (E)
+  } catch (e) {
+    Logger.log("Could not hide columns D & E: " + e.message);
+  }
+
+  // ✅ User feedback
+  SpreadsheetApp.getActive().toast("Final Check questions loaded.", "Ready", 4);
+}
+
+
+
+/*********************** FINAL CHECK CHECK ************************/
+
+function checkFinalCheck() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Final Check");
+
+  const allAnswered = FINAL_Q_ROWS.every(row => {
+    const ans = sheet.getRange(row, COL_Q_ANSWER).getValue().toString().trim().toUpperCase();
+    return ["A", "B", "C", "D"].includes(ans);
+  });
+
+  if (!allAnswered) {
+    SpreadsheetApp.getUi().alert("Answer all 10 questions before checking.");
+    return;
+  }
+
+  // Placeholder scoring, real scoring added in Part 4
+  sheet.getRange("B37").setValue("0 / 10");
+  sheet.getRange("B39").setValue("Incomplete — scoring added in Part 4");
+
+  SpreadsheetApp.getActive().toast("Final Check reviewed.", "Complete", 3);
+}
+
+/*********************** MENU WRAPPERS ************************/
+
+function runChapter1() { runChapter_(1); }
+function runChapter2() { runChapter_(2); }
+function runChapter3() { runChapter_(3); }
+function runChapter4() { runChapter_(4); }
+function runChapter5() { runChapter_(5); }
+
+function checkChapter1() { checkChapter_(1); }
+function checkChapter2() { checkChapter_(2); }
+function checkChapter3() { checkChapter_(3); }
+function checkChapter4() { checkChapter_(4); }
+function checkChapter5() { checkChapter_(5); }
+/***********************************************************
+ * PART 3 — QUESTION BANK + OUTCOMES + LOADERS
+ * - Real outcomes for each chapter choice (A/B/C)
+ * - Mixed-difficulty question bank (6 per choice)
+ * - Final Check question bank (30 questions)
+ * - Randomized loading into sheets
+ ***********************************************************/
+
+/*********************** OUTCOME TEXT ************************/
+
+const CHAPTER_OUTCOMES = {
+  1: {
+    A: "You take the full-time job at the startup. You gain stable income and benefits, but lose some control over your schedule, clients, and creative direction. The company keeps most of the upside if your work is extremely valuable.",
+    B: "You sign a 6-month contract with the agency. You get a steady base, plus work the agency brings in, but give up a cut of your revenue and some control over pricing.",
+    C: "You stay independent and hire a junior designer. Your costs go up, but so does your capacity to take on more clients and grow your business as an asset."
+  },
+  2: {
+    A: "You join a freelance platform. You get more consistent jobs with less marketing effort, but the platform takes a percentage of every dollar you earn.",
+    B: "You form a collective. Revenue is shared, risk is shared, and high performers sometimes feel they are subsidizing lower-output members.",
+    C: "You stay solo and hire admin help. Your time is freed up for higher-value work while you keep full control and high margins."
+  },
+  3: {
+    A: "You accept the exclusive 1-year deal. Income is stable, but you give up flexibility and the chance to work with other brands during this period.",
+    B: "You negotiate. You get better terms (like shorter length or bonuses) by using your bargaining power, because the brand wants your specific style.",
+    C: "You turn it down and keep your independence, choosing long-term growth and ownership over short-term stability."
+  },
+  4: {
+    A: "You hire support staff. Your fixed labor cost goes up, but you free time to bring in more and better projects.",
+    B: "You build and license templates. You shift from selling time to selling scalable products that can be sold repeatedly.",
+    C: "You build an agency. You become a manager and owner — taking on higher risk but also higher potential profit and resale value."
+  },
+  5: {
+    A: "You sell the business. You trade future uncertain earnings for a guaranteed lump sum today — giving up ownership.",
+    B: "You take investment. You give up a percentage of your company to grow faster and aim for a higher future valuation.",
+    C: "You stay independent. You keep 100% of control and profit and let value build slowly through compounding growth."
+  }
+};
+
+/*********************** CHAPTER QUESTION BANK ************************/
+/*
+ * Each entry: { q, options, correct }
+ * options uses line breaks: "A) ...\nB) ...\nC) ...\nD) ..."
+ * Any new term is defined inside the answer text.
+ */
+
+const CHAPTER_QUESTIONS = {
+
+  /*************** CHAPTER 1 ***************/
+  1: {
+    A: [ // Full-time job choice
+      {
+        q: "Why does a salary make your monthly income less risky than freelancing?",
+        options:
+          "A) Salary is fixed and predictable each month\n" +
+          "B) You always earn more than freelancers\n" +
+          "C) You can never be fired\n" +
+          "D) Taxes are lower for employees",
+        correct: "A"
+      },
+      {
+        q: "Expected value means the average result over many possible outcomes. Why is this useful when comparing salary vs freelancing?",
+        options:
+          "A) It helps compare stable income to variable income over time\n" +
+          "B) It only measures worst-case scenario\n" +
+          "C) It ignores risk completely\n" +
+          "D) It is only used for stock markets",
+        correct: "A"
+      },
+      {
+        q: "You create $20,000/month in value but are paid $6,000/month. What is this difference an example of?",
+        options:
+          "A) Labor surplus (value workers create above their pay)\n" +
+          "B) Revenue sharing\n" +
+          "C) Asset sale\n" +
+          "D) Interest income",
+        correct: "A"
+      },
+      {
+        q: "Stock options are a form of equity (ownership) that might be worth more later. What makes them valuable?",
+        options:
+          "A) If the company’s value rises, your ownership slice can become worth more\n" +
+          "B) They guarantee a fixed cash payment every month\n" +
+          "C) They are risk-free by definition\n" +
+          "D) They reduce your tax rate automatically",
+        correct: "A"
+      },
+      {
+        q: "Which tradeoff best describes choosing the full-time job?",
+        options:
+          "A) Higher stability now, potentially lower upside later\n" +
+          "B) Lower stability now, higher upside later\n" +
+          "C) No tradeoff — it dominates freelancing in every way\n" +
+          "D) Higher risk and no benefits",
+        correct: "A"
+      },
+      {
+        q: "Bargaining power means how much influence you have over pay and terms. Why does bargaining power usually drop when you become an employee?",
+        options:
+          "A) You have one main buyer of your labor (your employer)\n" +
+          "B) You control multiple clients at once\n" +
+          "C) You can easily walk away without cost\n" +
+          "D) You are the only worker in the market",
+        correct: "A"
+      }
+    ],
+
+    B: [ // Agency contract
+      {
+        q: "The agency taking 20% of your earnings is an example of revenue sharing. What is revenue sharing?",
+        options:
+          "A) Splitting income from a project between parties\n" +
+          "B) Paying a fixed tax to the government\n" +
+          "C) Borrowing money from a bank\n" +
+          "D) Buying equipment for your studio",
+        correct: "A"
+      },
+      {
+        q: "Why is a fixed monthly retainer plus a percentage of project fees a good place to use expected value (average outcome over time)?",
+        options:
+          "A) Because some months have more projects than others\n" +
+          "B) Because income never changes\n" +
+          "C) Because it ignores risk completely\n" +
+          "D) Because it only measures worst-case outcomes",
+        correct: "A"
+      },
+      {
+        q: "Compared to pure freelancing, what do you give up by letting the agency handle pricing and client relationships?",
+        options:
+          "A) Bargaining power (control over price and terms)\n" +
+          "B) Health insurance\n" +
+          "C) Your portfolio\n" +
+          "D) Your legal name",
+        correct: "A"
+      },
+      {
+        q: "Why might a new freelancer accept lower pay per project through an agency?",
+        options:
+          "A) The agency brings clients, lowering marketing time and risk\n" +
+          "B) Agencies are required by law\n" +
+          "C) Agencies never take a fee\n" +
+          "D) Agencies remove all deadlines",
+        correct: "A"
+      },
+      {
+        q: "What is the main tradeoff in the agency model?",
+        options:
+          "A) Less income per project in exchange for more consistent work\n" +
+          "B) More income per project and no work\n" +
+          "C) No income but full freedom\n" +
+          "D) Guaranteed lifetime contract",
+        correct: "A"
+      },
+      {
+        q: "Why might the agency’s 20% cut be justified from your perspective?",
+        options:
+          "A) They handle sales, marketing, and client management you don’t want to do\n" +
+          "B) They pay your rent directly\n" +
+          "C) They own your personal brand\n" +
+          "D) They guarantee you will never have competition",
+        correct: "A"
+      }
+    ],
+
+    C: [ // Hire junior designer
+      {
+        q: "Paying a junior designer a monthly wage is best described as what type of cost?",
+        options:
+          "A) Labor cost (money paid to workers)\n" +
+          "B) Equipment cost\n" +
+          "C) Marketing cost\n" +
+          "D) Passive income",
+        correct: "A"
+      },
+      {
+        q: "Why does delegating 30% of the work to a junior designer increase your revenue capacity?",
+        options:
+          "A) You free up time to take more clients and higher-value tasks\n" +
+          "B) You lose all clients\n" +
+          "C) You stop working completely\n" +
+          "D) You must lower your prices",
+        correct: "A"
+      },
+      {
+        q: "If the junior designer creates 30% of the total value but you keep 70% of the revenue, what concept does this show?",
+        options:
+          "A) Revenue sharing between you and the junior\n" +
+          "B) Taxation\n" +
+          "C) Debt repayment\n" +
+          "D) Asset depreciation",
+        correct: "A"
+      },
+      {
+        q: "If your profit rises over time because of the junior designer’s help, what happens to your business as an asset?",
+        options:
+          "A) Its value increases because it can earn more profit\n" +
+          "B) Its value always falls\n" +
+          "C) It stops being a business\n" +
+          "D) It becomes impossible to sell",
+        correct: "A"
+      },
+      {
+        q: "Taking on a short-term cost (the junior’s salary) to grow long-term profit is an example of using which idea?",
+        options:
+          "A) Expected value (trading small costs now for bigger gains later)\n" +
+          "B) Inflation\n" +
+          "C) Sunk cost fallacy\n" +
+          "D) Pure luck",
+        correct: "A"
+      },
+      {
+        q: "Compared to working alone, hiring a junior designer shifts your role slightly toward:",
+        options:
+          "A) Business owner who manages people and systems\n" +
+          "B) Pure hourly worker only\n" +
+          "C) Investor in stocks only\n" +
+          "D) Client with no responsibility",
+        correct: "A"
+      }
+    ]
+  },
+
+  /*************** CHAPTER 2 ***************/
+  2: {
+    A: [ // Platform
+      {
+        q: "A platform taking 25% of your revenue is what type of arrangement?",
+        options:
+          "A) Revenue sharing (splitting earnings with the platform)\n" +
+          "B) Fixed salary\n" +
+          "C) Loan repayment\n" +
+          "D) Tax refund",
+        correct: "A"
+      },
+      {
+        q: "Why might your revenue per project go down when working through a platform, even if you do more jobs?",
+        options:
+          "A) The platform fee reduces your cut on each job\n" +
+          "B) Platforms ban repeat clients\n" +
+          "C) Platforms pay bonuses on every job\n" +
+          "D) Platforms give you ownership shares",
+        correct: "A"
+      },
+      {
+        q: "What tradeoff are you making by choosing platform work?",
+        options:
+          "A) Less profit per job in exchange for more consistent work and less marketing\n" +
+          "B) More profit per job and no marketing\n" +
+          "C) No work at all\n" +
+          "D) Guaranteed full creative control and no rules",
+        correct: "A"
+      },
+      {
+        q: "Why does your bargaining power usually drop when platform rules control pricing?",
+        options:
+          "A) The platform, not you, sets or strongly influences the rates\n" +
+          "B) You can negotiate with each client easily\n" +
+          "C) You own the entire platform\n" +
+          "D) Clients must follow your personal rules",
+        correct: "A"
+      },
+      {
+        q: "Revenue consistency means income is more predictable month to month. How does a platform help with this?",
+        options:
+          "A) It sends a steady flow of potential projects\n" +
+          "B) It guarantees one giant project\n" +
+          "C) It eliminates all competition\n" +
+          "D) It directly pays your rent",
+        correct: "A"
+      },
+      {
+        q: "Why might some freelancers leave a platform after building a strong client list?",
+        options:
+          "A) To keep more of the revenue they generate\n" +
+          "B) Because their skill level drops\n" +
+          "C) Because platforms forbid direct contact with clients\n" +
+          "D) Because platform fees turn into bonuses",
+        correct: "A"
+      }
+    ],
+
+    B: [ // Collective
+      {
+        q: "A creative collective that splits income equally regardless of who does more work is an example of:",
+        options:
+          "A) Shared revenue model (everyone shares total earnings)\n" +
+          "B) Commission-only pay\n" +
+          "C) Salary-only model\n" +
+          "D) Pure volunteer work",
+        correct: "A"
+      },
+      {
+        q: "Why might high performers be unhappy in an equal-splits collective?",
+        options:
+          "A) They earn the same as people who do less work\n" +
+          "B) They always earn more than others\n" +
+          "C) They never get any clients\n" +
+          "D) They are forced to leave after good months",
+        correct: "A"
+      },
+      {
+        q: "What is a benefit of forming a collective?",
+        options:
+          "A) Shared risk and more stability from pooled clients\n" +
+          "B) Guaranteed solo control of all decisions\n" +
+          "C) No need to find clients at all\n" +
+          "D) No coordination or meetings required",
+        correct: "A"
+      },
+      {
+        q: "Labor economics studies how people work, get paid, and cooperate. Why does a collective need rules based on labor economics?",
+        options:
+          "A) To balance fairness, incentives, and productivity among members\n" +
+          "B) To set interest rates at banks\n" +
+          "C) To control national inflation\n" +
+          "D) To design computer hardware",
+        correct: "A"
+      },
+      {
+        q: "If one member threatens to leave unless they receive a bigger share, what concept are they using?",
+        options:
+          "A) Bargaining power (using leverage to negotiate terms)\n" +
+          "B) Risk aversion\n" +
+          "C) Tax optimization\n" +
+          "D) Brand loyalty",
+        correct: "A"
+      },
+      {
+        q: "Why might a collective still be attractive even if some members work more than others?",
+        options:
+          "A) Members value stability, shared risk, and community support\n" +
+          "B) Everyone wants to work less\n" +
+          "C) It guarantees the highest individual income\n" +
+          "D) It removes all responsibility",
+        correct: "A"
+      }
+    ],
+
+    C: [ // Solo + admin help
+      {
+        q: "Paying someone $500/month to handle admin is what kind of decision?",
+        options:
+          "A) Labor investment (spending on help to free your time)\n" +
+          "B) Buying a physical asset\n" +
+          "C) Taking on debt\n" +
+          "D) Passive income",
+        correct: "A"
+      },
+      {
+        q: "If admin help lets you earn $1,000 more per month, what is your net gain?",
+        options:
+          "A) $500 (extra $1,000 income minus $500 cost)\n" +
+          "B) $1,000\n" +
+          "C) $1,500\n" +
+          "D) $0",
+        correct: "A"
+      },
+      {
+        q: "Why does outsourcing admin increase your efficiency?",
+        options:
+          "A) You spend more time on high-value design work\n" +
+          "B) You spend more time on low-value tasks\n" +
+          "C) You stop taking clients\n" +
+          "D) You do double the admin work",
+        correct: "A"
+      },
+      {
+        q: "Keeping full control over pricing and client list gives you what in negotiations?",
+        options:
+          "A) High bargaining power (strong control over terms)\n" +
+          "B) No bargaining power\n" +
+          "C) Guaranteed low rates\n" +
+          "D) Dependence on one platform",
+        correct: "A"
+      },
+      {
+        q: "Why might this solo-plus-admin model be more sustainable long term?",
+        options:
+          "A) You reduce burnout while keeping strong profit margins\n" +
+          "B) You increase burnout and reduce profit\n" +
+          "C) You stop working entirely\n" +
+          "D) You give away ownership of your brand",
+        correct: "A"
+      },
+      {
+        q: "Compared to joining a platform, what do you keep more of under this model?",
+        options:
+          "A) Your revenue and control over your brand\n" +
+          "B) Platform loyalty points\n" +
+          "C) Agency equity\n" +
+          "D) Tax subsidies",
+        correct: "A"
+      }
+    ]
+  },
+
+  /*************** CHAPTER 3 (Big client offer) ***************/
+  3: {
+    A: [ // Accept exclusive
+      {
+        q: "Why is accepting a fixed $85,000 exclusive contract called a low-risk, high-stability choice?",
+        options:
+          "A) Income is guaranteed for the year regardless of month-to-month client demand\n" +
+          "B) Income is completely unpredictable\n" +
+          "C) You can work for unlimited other clients\n" +
+          "D) You only get paid if campaigns go viral",
+        correct: "A"
+      },
+      {
+        q: "Exclusivity means you cannot work for competing or other clients. What is the main cost of this?",
+        options:
+          "A) Lost opportunity to earn from other brands during the contract\n" +
+          "B) Higher hourly rates\n" +
+          "C) Lower workload\n" +
+          "D) No time commitment",
+        correct: "A"
+      },
+      {
+        q: "If the brand uses your work to grow its profits but you only receive the fixed salary, what is happening?",
+        options:
+          "A) You create asset value for someone else\n" +
+          "B) You keep all asset value\n" +
+          "C) You buy shares automatically\n" +
+          "D) You receive royalties on every sale",
+        correct: "A"
+      },
+      {
+        q: "What is a key downside of long exclusive contracts?",
+        options:
+          "A) You lock yourself out of possibly better deals that appear later\n" +
+          "B) You always get bonuses\n" +
+          "C) They reduce your skills\n" +
+          "D) They remove all deadlines",
+        correct: "A"
+      },
+      {
+        q: "When you cannot quickly change terms after signing, economists call this a sunk opportunity. What does that mean?",
+        options:
+          "A) A chance you gave up in the past and cannot easily reclaim\n" +
+          "B) A future opportunity you are guaranteed to get\n" +
+          "C) Money stored in savings\n" +
+          "D) A legal penalty",
+        correct: "A"
+      },
+      {
+        q: "Why might someone still prefer this exclusive contract?",
+        options:
+          "A) They value predictable income and less stress more than maximum upside\n" +
+          "B) They want maximum risk\n" +
+          "C) They prefer no income\n" +
+          "D) They want unlimited clients at once",
+        correct: "A"
+      }
+    ],
+
+    B: [ // Negotiate
+      {
+        q: "What concept are you using when you ask for a shorter term or better pay because the brand wants your style?",
+        options:
+          "A) Bargaining power (ability to negotiate better terms)\n" +
+          "B) Inventory turnover\n" +
+          "C) Tax incidence\n" +
+          "D) Brand dilution",
+        correct: "A"
+      },
+      {
+        q: "A deal with base pay plus performance bonuses is an example of which income structure?",
+        options:
+          "A) Mixed income — part guaranteed, part based on results\n" +
+          "B) Pure fixed income\n" +
+          "C) Pure commission\n" +
+          "D) No income",
+        correct: "A"
+      },
+      {
+        q: "Why does keeping the ability to work with 1–2 other clients increase your option value?",
+        options:
+          "A) You preserve future choices and flexibility\n" +
+          "B) You remove all options\n" +
+          "C) You must stay with one client forever\n" +
+          "D) You cannot learn new skills",
+        correct: "A"
+      },
+      {
+        q: "As your portfolio grows with a national brand, what is likely happening to your personal brand?",
+        options:
+          "A) Its asset value increases — it becomes more valuable in the market\n" +
+          "B) It becomes worthless\n" +
+          "C) It loses all followers\n" +
+          "D) It stops earning forever",
+        correct: "A"
+      },
+      {
+        q: "Why is negotiation possible at all in this situation?",
+        options:
+          "A) You have something the brand wants — your proven style and audience\n" +
+          "B) You are their only employee\n" +
+          "C) The law requires them to negotiate\n" +
+          "D) They have unlimited similar designers",
+        correct: "A"
+      },
+      {
+        q: "If the brand agrees to performance bonuses, what does that do to your expected value of income?",
+        options:
+          "A) It can raise the average income you expect based on campaign success\n" +
+          "B) It guarantees lower income\n" +
+          "C) It removes any upside\n" +
+          "D) It fixes income at zero",
+        correct: "A"
+      }
+    ],
+
+    C: [ // Turn it down
+      {
+        q: "Turning down the exclusive deal to keep building your own brand is:",
+        options:
+          "A) A higher-risk, higher-upside strategy\n" +
+          "B) A guaranteed income strategy\n" +
+          "C) Risk-free\n" +
+          "D) Illegal",
+        correct: "A"
+      },
+      {
+        q: "Your brand, audience, and digital products are examples of:",
+        options:
+          "A) Business assets (things you own that can produce income)\n" +
+          "B) Monthly expenses\n" +
+          "C) Loans\n" +
+          "D) Taxes",
+        correct: "A"
+      },
+      {
+        q: "Why is income more volatile in this path?",
+        options:
+          "A) Revenue can move up and down rapidly with demand and launches\n" +
+          "B) You get a fixed salary\n" +
+          "C) You have a guaranteed minimum\n" +
+          "D) Laws prevent fluctuations",
+        correct: "A"
+      },
+      {
+        q: "Why might this path have higher long-term expected value than a fixed salary?",
+        options:
+          "A) There is no cap on how much your own brand can eventually earn\n" +
+          "B) Income is capped by the employer\n" +
+          "C) You never grow your skills\n" +
+          "D) You lose all control",
+        correct: "A"
+      },
+      {
+        q: "Keeping 100% of ownership in your audience and products means:",
+        options:
+          "A) You keep all the equity (ownership value)\n" +
+          "B) You must share profits with others\n" +
+          "C) You cannot raise prices\n" +
+          "D) You give away rights to another company",
+        correct: "A"
+      },
+      {
+        q: "Which person is most likely to choose this path?",
+        options:
+          "A) Someone who values freedom and long-term upside more than short-term stability\n" +
+          "B) Someone who hates risk of any kind\n" +
+          "C) Someone close to retirement looking for security only\n" +
+          "D) Someone forbidden from self-employment",
+        correct: "A"
+      }
+    ]
+  },
+
+  /*************** CHAPTER 4 (Scaling up) ***************/
+  4: {
+    A: [ // Hire support staff
+      {
+        q: "Hiring support staff increases which type of cost?",
+        options:
+          "A) Fixed labor cost (regular pay for helpers)\n" +
+          "B) One-time equipment cost\n" +
+          "C) Loan interest\n" +
+          "D) Tax refunds",
+        correct: "A"
+      },
+      {
+        q: "Delegating non-billable work like email and scheduling increases your:",
+        options:
+          "A) Revenue generation potential (ability to earn more)\n" +
+          "B) Time spent on low-value tasks\n" +
+          "C) Need for random hobbies\n" +
+          "D) Fixed rent",
+        correct: "A"
+      },
+      {
+        q: "The extra income you earn from adding one more project after hiring help is called:",
+        options:
+          "A) Marginal revenue (additional revenue from one more unit of work)\n" +
+          "B) Fixed cost\n" +
+          "C) Sunk cost\n" +
+          "D) Depreciation",
+        correct: "A"
+      },
+      {
+        q: "Why does your business become more valuable as an asset when systems and support staff make it run smoothly?",
+        options:
+          "A) It can generate profit more reliably without burning you out\n" +
+          "B) It stops generating profit\n" +
+          "C) It becomes illegal\n" +
+          "D) It cannot be sold",
+        correct: "A"
+      },
+      {
+        q: "Labor economics can help explain your decision because it studies:",
+        options:
+          "A) How workers, wages, and productivity interact\n" +
+          "B) How planets move in space\n" +
+          "C) Only government budgets\n" +
+          "D) Only stock markets",
+        correct: "A"
+      },
+      {
+        q: "What is a potential risk of adding support staff?",
+        options:
+          "A) Your fixed costs rise, so you must keep enough work to cover them\n" +
+          "B) Your rent disappears\n" +
+          "C) You can never increase prices\n" +
+          "D) Clients must pay more tax",
+        correct: "A"
+      }
+    ],
+
+    B: [ // License templates
+      {
+        q: "Selling digital templates that can be bought by many creators is an example of what?",
+        options:
+          "A) Scalable product income (product can be sold many times)\n" +
+          "B) One-time freelance gig\n" +
+          "C) Loan repayment\n" +
+          "D) Government grant",
+        correct: "A"
+      },
+      {
+        q: "Why does your labor cost per sale drop as more people buy your templates?",
+        options:
+          "A) You do the design work once but sell it many times\n" +
+          "B) You redesign for every buyer\n" +
+          "C) You must hire more staff for each sale\n" +
+          "D) You must print physical copies",
+        correct: "A"
+      },
+      {
+        q: "When you earn money even while you are asleep or not working, this is called:",
+        options:
+          "A) Passive or residual income\n" +
+          "B) Fixed salary only\n" +
+          "C) Penalty income\n" +
+          "D) Negative equity",
+        correct: "A"
+      },
+      {
+        q: "As your template store sells more each month, what happens to the store’s value as an asset?",
+        options:
+          "A) It increases because its earning power grows\n" +
+          "B) It falls to zero automatically\n" +
+          "C) It cannot be valued\n" +
+          "D) It becomes a liability only",
+        correct: "A"
+      },
+      {
+        q: "Moving from services (selling time) to products (selling templates) mainly improves:",
+        options:
+          "A) Scalability (ability to grow without equal increases in hours)\n" +
+          "B) Rent payments\n" +
+          "C) Tax rates\n" +
+          "D) Commute distance",
+        correct: "A"
+      },
+      {
+        q: "What is a risk of focusing only on template sales?",
+        options:
+          "A) Revenue can drop if trends change and assets become outdated\n" +
+          "B) You keep all your time free forever\n" +
+          "C) You always get guaranteed income\n" +
+          "D) Clients must still pay for custom work",
+        correct: "A"
+      }
+    ],
+
+    C: [ // Build agency
+      {
+        q: "Paying 3 full-time employees is primarily what type of cost?",
+        options:
+          "A) Fixed labor cost (you pay salaries regardless of monthly revenue)\n" +
+          "B) Variable tax cost\n" +
+          "C) One-time startup cost\n" +
+          "D) Passive income",
+        correct: "A"
+      },
+      {
+        q: "If the agency bills $25,000/month and pays $12,000/month in salaries, what is this difference called?",
+        options:
+          "A) Labor margin or profit margin (revenue minus payroll)\n" +
+          "B) Revenue sharing\n" +
+          "C) Debt financing\n" +
+          "D) Pure donation",
+        correct: "A"
+      },
+      {
+        q: "When you shift from doing all client work yourself to managing others, your role becomes more like:",
+        options:
+          "A) Business owner/operator\n" +
+          "B) Intern\n" +
+          "C) Banker\n" +
+          "D) Full-time client",
+        correct: "A"
+      },
+      {
+        q: "Why does an agency that can operate without your daily design work have higher resale value?",
+        options:
+          "A) A buyer can step in without needing your exact skills every day\n" +
+          "B) It cannot function without you\n" +
+          "C) It makes no profit\n" +
+          "D) It has no clients",
+        correct: "A"
+      },
+      {
+        q: "What is one major risk of scaling into an agency?",
+        options:
+          "A) You must cover high fixed payroll even in slow months\n" +
+          "B) You never have any costs\n" +
+          "C) You cannot hire staff\n" +
+          "D) You are guaranteed constant demand",
+        correct: "A"
+      },
+      {
+        q: "Which statement best captures the upside of a successful agency model?",
+        options:
+          "A) Revenue can grow beyond your personal time limit, increasing long-term asset value\n" +
+          "B) Revenue is capped at your own hours\n" +
+          "C) You must lower prices forever\n" +
+          "D) You lose all clients automatically",
+        correct: "A"
+      }
+    ]
+  },
+
+  /*************** CHAPTER 5 (Exit or empire) ***************/
+  5: {
+    A: [ // Sell
+      {
+        q: "Asset valuation means estimating:",
+        options:
+          "A) What your business is worth if sold today\n" +
+          "B) Your monthly rent\n" +
+          "C) Only your tax payment\n" +
+          "D) Your internet bill",
+        correct: "A"
+      },
+      {
+        q: "Selling the business for $400,000 is trading future uncertain profit for:",
+        options:
+          "A) A guaranteed lump-sum payout now\n" +
+          "B) Unlimited future profit and ownership\n" +
+          "C) Zero cash\n" +
+          "D) Debt only",
+        correct: "A"
+      },
+      {
+        q: "Why might someone prefer to sell even if the business could earn more in the long run?",
+        options:
+          "A) They prefer lower risk and immediate liquidity (cash they can use)\n" +
+          "B) They dislike having savings\n" +
+          "C) They want more uncertainty\n" +
+          "D) They cannot legally own money",
+        correct: "A"
+      },
+      {
+        q: "What is one downside of selling your business?",
+        options:
+          "A) You give up all future profits from that asset\n" +
+          "B) You keep full control\n" +
+          "C) You gain more equity\n" +
+          "D) You still own the brand",
+        correct: "A"
+      },
+      {
+        q: "When negotiating a sale price, what factor can reduce your bargaining power?",
+        options:
+          "A) If the business cannot operate without you personally\n" +
+          "B) If it runs smoothly without you\n" +
+          "C) If profits are growing\n" +
+          "D) If many buyers are competing",
+        correct: "A"
+      },
+      {
+        q: "This decision mainly compares:",
+        options:
+          "A) Ownership and future profit vs immediate capital (cash now)\n" +
+          "B) Rent vs groceries\n" +
+          "C) Interest vs taxes\n" +
+          "D) Price vs color",
+        correct: "A"
+      }
+    ],
+
+    B: [ // Take investment
+      {
+        q: "Giving investors 20% of your company is an example of:",
+        options:
+          "A) Equity sharing (sharing ownership and future profits)\n" +
+          "B) Paying a monthly salary\n" +
+          "C) Taking a simple loan\n" +
+          "D) Reducing rent",
+        correct: "A"
+      },
+      {
+        q: "Investors put in money because:",
+        options:
+          "A) They expect a return (profit) on their shares in the future\n" +
+          "B) They must lose money by law\n" +
+          "C) They are paying your taxes\n" +
+          "D) They gain nothing from success",
+        correct: "A"
+      },
+      {
+        q: "If the business grows after investment, what happens to the value of your remaining 80% ownership?",
+        options:
+          "A) It becomes more valuable, even though you own a smaller percentage\n" +
+          "B) It becomes worthless\n" +
+          "C) It never changes\n" +
+          "D) It is automatically sold",
+        correct: "A"
+      },
+      {
+        q: "What do you lose when you bring in outside investors?",
+        options:
+          "A) Some control over decisions and strategy\n" +
+          "B) All revenue forever\n" +
+          "C) Your personal skills\n" +
+          "D) Your ability to work",
+        correct: "A"
+      },
+      {
+        q: "Why does investor pressure often push you to grow faster?",
+        options:
+          "A) They want a higher expected value of their stake in a shorter time\n" +
+          "B) They want the business to close\n" +
+          "C) They don’t care about returns\n" +
+          "D) They are required to keep it small",
+        correct: "A"
+      },
+      {
+        q: "What is a risk of taking equity investment too early?",
+        options:
+          "A) You may give up too large a share of a company that later becomes very valuable\n" +
+          "B) You must pay no taxes\n" +
+          "C) You lose all clients instantly\n" +
+          "D) You can never grow again",
+        correct: "A"
+      }
+    ],
+
+    C: [ // Stay independent
+      {
+        q: "Retaining 100% ownership means:",
+        options:
+          "A) You keep all profits and equity (ownership value)\n" +
+          "B) You must share profits with investors\n" +
+          "C) You can’t make decisions\n" +
+          "D) You have no legal rights",
+        correct: "A"
+      },
+      {
+        q: "A slow-but-steady growth path relies on which idea?",
+        options:
+          "A) Compounding — profits reinvested over time can grow total value\n" +
+          "B) Sudden shutdown\n" +
+          "C) Inflation only\n" +
+          "D) Fixed, non-changing value",
+        correct: "A"
+      },
+      {
+        q: "Why might this be considered a “safe growth” option compared to taking investment?",
+        options:
+          "A) You avoid debt and external pressure to grow at any cost\n" +
+          "B) You take on more debt\n" +
+          "C) Investors control every decision\n" +
+          "D) You must sell immediately",
+        correct: "A"
+      },
+      {
+        q: "What is a downside of refusing both a sale and investment?",
+        options:
+          "A) Growth may be slower because you lack extra capital\n" +
+          "B) Growth is guaranteed to be faster\n" +
+          "C) You lose all clients\n" +
+          "D) You never need to work again",
+        correct: "A"
+      },
+      {
+        q: "In this strategy, what are you clearly prioritizing?",
+        options:
+          "A) Control and long-term independence\n" +
+          "B) Short-term cash only\n" +
+          "C) Giving away ownership\n" +
+          "D) Maximum outside control",
+        correct: "A"
+      },
+      {
+        q: "As profits grow and you keep reinvesting, what happens to the asset value of your business?",
+        options:
+          "A) It tends to rise with sustained profitability\n" +
+          "B) It must fall\n" +
+          "C) It becomes impossible to sell\n" +
+          "D) It instantly resets to zero",
+        correct: "A"
+      }
+    ]
+  }
+};
+
+/*********************** FINAL CHECK QUESTION BANK ************************/
+
+const FINAL_QUESTIONS = [
+  {
+    q: "Expected value is best described as:",
+    options:
+      "A) The average outcome you would get over many similar tries\n" +
+      "B) The worst possible outcome only\n" +
+      "C) A guaranteed fixed result\n" +
+      "D) Total income divided by tax rate",
+    correct: "A"
+  },
+  {
+    q: "Revenue sharing means:",
+    options:
+      "A) Splitting earnings from a project between parties\n" +
+      "B) Keeping all earnings yourself\n" +
+      "C) Paying a loan to a bank\n" +
+      "D) Receiving a government grant",
+    correct: "A"
+  },
+  {
+    q: "Labor cost refers to:",
+    options:
+      "A) Money paid to workers for their time and effort\n" +
+      "B) The cost of computers\n" +
+      "C) The cost of internet\n" +
+      "D) Taxes on profits",
+    correct: "A"
+  },
+  {
+    q: "Bargaining power means:",
+    options:
+      "A) How much influence you have over price and terms in a negotiation\n" +
+      "B) Your ability to lift heavy weights\n" +
+      "C) The size of your office\n" +
+      "D) The number of emails you send",
+    correct: "A"
+  },
+  {
+    q: "Asset valuation is the process of:",
+    options:
+      "A) Estimating how much a business or asset is worth\n" +
+      "B) Counting daily emails\n" +
+      "C) Measuring how many hours you work\n" +
+      "D) Setting your alarm clock",
+    correct: "A"
+  },
+  {
+    q: "Why is freelancing income often considered higher-risk than a salary?",
+    options:
+      "A) Client demand can change and pay isn’t guaranteed\n" +
+      "B) Freelancers can’t raise prices\n" +
+      "C) Freelancers never find clients\n" +
+      "D) Salaries change every day",
+    correct: "A"
+  },
+  {
+    q: "A business that can make money even when the founder is not working directly is:",
+    options:
+      "A) More valuable as an asset\n" +
+      "B) Less valuable as an asset\n" +
+      "C) Not a business\n" +
+      "D) Illegal",
+    correct: "A"
+  },
+  {
+    q: "Which is an example of scaling (growing output without equal growth in hours worked)?",
+    options:
+      "A) Selling a digital course many times after recording it once\n" +
+      "B) Charging the same rate for fewer hours\n" +
+      "C) Working more hours for the same pay\n" +
+      "D) Doing more unpaid work",
+    correct: "A"
+  },
+  {
+    q: "Why do investors care about expected value of their investment?",
+    options:
+      "A) They want to know the average return they might get over time\n" +
+      "B) They only care about worst-case losses\n" +
+      "C) They only care about number of employees\n" +
+      "D) They never consider risk",
+    correct: "A"
+  },
+  {
+    q: "If you take a lower guaranteed income today for a chance at much higher upside later, you are trading:",
+    options:
+      "A) Short-term security for long-term expected value\n" +
+      "B) Long-term value for short-term security\n" +
+      "C) Rent for groceries\n" +
+      "D) Time for nothing",
+    correct: "A"
+  },
+  {
+    q: "What is opportunity cost?",
+    options:
+      "A) The value of the next best option you gave up\n" +
+      "B) The money you keep in cash\n" +
+      "C) Your tax refund\n" +
+      "D) The number of hours you worked",
+    correct: "A"
+  },
+  {
+    q: "Why do exclusive contracts reduce your opportunity set?",
+    options:
+      "A) They prevent you from taking other projects during the contract\n" +
+      "B) They let you take unlimited projects\n" +
+      "C) They increase your available hours\n" +
+      "D) They reduce your tax rate",
+    correct: "A"
+  },
+  {
+    q: "In labor economics, what does specialization mean?",
+    options:
+      "A) Focusing on a narrow set of tasks you are highly skilled at\n" +
+      "B) Doing every task yourself\n" +
+      "C) Working fewer hours for less pay\n" +
+      "D) Changing jobs every day",
+    correct: "A"
+  },
+  {
+    q: "Which choice best describes equity?",
+    options:
+      "A) Ownership in an asset or business\n" +
+      "B) A monthly salary\n" +
+      "C) A tax payment\n" +
+      "D) A loan you must repay",
+    correct: "A"
+  },
+  {
+    q: "Why do many founders eventually hire employees or contractors?",
+    options:
+      "A) To increase total output beyond what they can do alone\n" +
+      "B) To work more hours themselves\n" +
+      "C) To reduce revenue\n" +
+      "D) To avoid managing anyone",
+    correct: "A"
+  },
+  {
+    q: "Having many potential clients instead of just one employer usually increases your:",
+    options:
+      "A) Bargaining power (more outside options)\n" +
+      "B) Rent cost\n" +
+      "C) Fixed utility bill\n" +
+      "D) Number of bosses",
+    correct: "A"
+  },
+  {
+    q: "A business with high fixed costs but low variable costs per sale is most sensitive to:",
+    options:
+      "A) Changes in total sales volume\n" +
+      "B) Number of colors in its logo\n" +
+      "C) Its office chair material\n" +
+      "D) Size of email inbox",
+    correct: "A"
+  },
+  {
+    q: "Why might a freelancer accept a lower rate from a prestigious client?",
+    options:
+      "A) The portfolio value and future opportunities can be worth more than the short-term pay cut\n" +
+      "B) They do not value money\n" +
+      "C) They cannot charge higher rates later\n" +
+      "D) It is required by law",
+    correct: "A"
+  },
+  {
+    q: "What is one key danger of relying on a single large client for most of your income?",
+    options:
+      "A) If they leave, your income drops sharply\n" +
+      "B) You have too many backups\n" +
+      "C) Competition disappears\n" +
+      "D) Your rent decreases automatically",
+    correct: "A"
+  },
+  {
+    q: "In a shared revenue model, a designer keeps 70% and the platform keeps 30%. What does this mean?",
+    options:
+      "A) For each dollar earned, the designer gets $0.70 and the platform gets $0.30\n" +
+      "B) The platform gets 70%\n" +
+      "C) The designer gets 100%\n" +
+      "D) The government gets all income",
+    correct: "A"
+  },
+  {
+    q: "Passive income from digital products is best described as:",
+    options:
+      "A) Money earned with little ongoing active work after the product is created\n" +
+      "B) Money earned only by hourly labor\n" +
+      "C) Money borrowed from a friend\n" +
+      "D) Illegal income",
+    correct: "A"
+  },
+  {
+    q: "Why can a business be valuable even if the founder plans to stop working there?",
+    options:
+      "A) If it has systems and people that continue to generate profit\n" +
+      "B) Because value disappears when the founder leaves\n" +
+      "C) Because it has nice logos only\n" +
+      "D) Because taxes are low",
+    correct: "A"
+  },
+  {
+    q: "What is the main advantage of owning an asset that appreciates over time?",
+    options:
+      "A) Its value can grow without additional effort\n" +
+      "B) It always loses value\n" +
+      "C) It never changes in price\n" +
+      "D) It must be sold immediately",
+    correct: "A"
+  },
+  {
+    q: "If two contracts have the same expected value but one has lower risk (less variation), which might a risk-averse person choose?",
+    options:
+      "A) The lower-risk contract\n" +
+      "B) The higher-risk contract\n" +
+      "C) Neither — they choose random\n" +
+      "D) The one with the longest pages",
+    correct: "A"
+  },
+  {
+    q: "Which is an example of long-term compounding in a creative business?",
+    options:
+      "A) Reinvesting profits into better tools, training, and marketing each year\n" +
+      "B) Spending all profits immediately\n" +
+      "C) Cutting all investment in quality\n" +
+      "D) Constantly starting from scratch",
+    correct: "A"
+  },
+  {
+    q: "Why is it risky to underprice your services for a long time?",
+    options:
+      "A) It anchors clients to low rates and reduces your long-term earnings\n" +
+      "B) It guarantees you will earn more\n" +
+      "C) It raises your bargaining power\n" +
+      "D) It has no effect over time",
+    correct: "A"
+  },
+  {
+    q: "An entrepreneur who sells their company for a large lump sum is mostly gaining:",
+    options:
+      "A) Liquidity (cash they can use now)\n" +
+      "B) Higher future ownership\n" +
+      "C) Guaranteed monthly salary from the business\n" +
+      "D) New debt",
+    correct: "A"
+  },
+  {
+    q: "Which best describes risk diversification?",
+    options:
+      "A) Spreading your income or investments across different clients or assets\n" +
+      "B) Putting everything into one client\n" +
+      "C) Avoiding contracts completely\n" +
+      "D) Working fewer hours for the same client",
+    correct: "A"
+  },
+  {
+    q: "Why might a founder reject a buyout offer even if it is large?",
+    options:
+      "A) They believe the future value of staying independent is higher\n" +
+      "B) They dislike having money\n" +
+      "C) They must legally accept all offers\n" +
+      "D) They cannot reinvest",
+    correct: "A"
+  },
+  {
+    q: "What key tradeoff is at the heart of many decisions in this simulation?",
+    options:
+      "A) Short-term stability vs long-term growth and upside\n" +
+      "B) Color vs font choice\n" +
+      "C) Number of emails vs text messages\n" +
+      "D) Desktop vs laptop",
+    correct: "A"
+  }
+];
+
+/*********************** HELPERS: SHUFFLING & SELECTING ************************/
+
+function shuffle_(arr) {
+  const copy = arr.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = temp;
+  }
+  return copy;
+}
+function forceHideAnswerColumns() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Final Check");
+  if (sheet) {
+    sheet.hideColumns(COL_Q_CORRECT, 2); // Columns D & E
+    SpreadsheetApp.getUi().alert("Columns D & E are now hidden.");
+  }
+}
+function getRandomChapterQuestions_(chapterNum, choice) {
+  const bank = CHAPTER_QUESTIONS[chapterNum] && CHAPTER_QUESTIONS[chapterNum][choice];
+  if (!bank || bank.length < 5) {
+    throw new Error("Not enough questions for Chapter " + chapterNum + " choice " + choice);
+  }
+  return shuffle_(bank).slice(0, 5);
+}
+
+function getRandomFinalQuestions_() {
+  if (FINAL_QUESTIONS.length < 10) {
+    throw new Error("Not enough final check questions.");
+  }
+  return shuffle_(FINAL_QUESTIONS).slice(0, 10);
+}
+function hideAnswerColumns_(sheet) {
+  sheet.hideColumns(COL_Q_CORRECT, 2); // hides D and E
+}
+/*********************** UPDATED RUN CHAPTER (REPLACE OLD ONE) ************************/
+
+function runChapter_(chapterNum) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName("Chapter " + chapterNum);
+
+  // Ensure email exists (may throw if cancelled)
+  getUserEmail_();
+
+  const choice = sheet.getRange("B6").getValue().toString().trim().toUpperCase();
+  if (!["A", "B", "C"].includes(choice)) {
+    SpreadsheetApp.getUi().alert("Please choose A, B, or C in cell B6 before running the chapter.");
+    return;
+  }
+
+  // Write real outcome text
+  const outcome = CHAPTER_OUTCOMES[chapterNum] && CHAPTER_OUTCOMES[chapterNum][choice];
+  sheet.getRange("A9").setValue(outcome || "(Outcome not defined yet.)");
+
+  // Load 5 random questions
+  const questions = getRandomChapterQuestions_(chapterNum, choice);
+
+  CHAPTER_Q_ROWS.forEach((row, idx) => {
+    const qObj = randomizeOptions_(questions[idx]);
+
+    sheet.getRange(row, COL_Q_TEXT).setValue(qObj.q);
+    sheet.getRange(row, COL_Q_OPTIONS).setValue(qObj.options);
+
+    const ansCell = sheet.getRange(row, COL_Q_ANSWER);
+    ansCell.clearDataValidations();
+    ansCell.setValue("");
+    ansCell.setDataValidation(
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(["A", "B", "C", "D"], true)
+        .setAllowInvalid(false)
+        .build()
+    );
+
+    sheet.getRange(row, COL_Q_CORRECT).setValue(qObj.correct);
+    sheet.getRange(row, COL_Q_ID).setValue("CH" + chapterNum + "_" + choice + "_" + (idx + 1));
+  });
+
+  // Clear old score/result
+  sheet.getRange("B25").setValue("");
+  sheet.getRange("B27").setValue("");
+
+  SpreadsheetApp.getActive().toast("Chapter " + chapterNum + " questions loaded.", "Ready", 4);
+}
+
+/*********************** UPDATED RUN FINAL CHECK (REPLACE OLD ONE) ************************/
+function runFinalCheck() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Final Check");
+
+  // Ensure email exists
+  getUserEmail_();
+
+  // Get 10 randomized final questions
+  const questions = getRandomFinalQuestions_();
+
+  // Loop through the rows where final questions go
+  FINAL_Q_ROWS.forEach((row, idx) => {
+    const qObj = randomizeOptions_(questions[idx]);
+
+    // Write question and answer choices
+    sheet.getRange(row, COL_Q_TEXT).setValue(qObj.q);
+    sheet.getRange(row, COL_Q_OPTIONS).setValue(qObj.options);
+
+    // Get the answer cell (Column C)
+    const ansCell = sheet.getRange(row, COL_Q_ANSWER);
+
+    // 1. Clear old value + old validation
+    ansCell.clearDataValidations();
+    ansCell.clearContent();
+
+    // 2. Pre-fill with a valid value so Google Sheets won't complain
+    ansCell.setValue("A");
+
+    // 3. Apply dropdown validation (A/B/C/D only)
+    ansCell.setDataValidation(
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(["A", "B", "C", "D"], true) // dropdown
+        .setAllowInvalid(false)
+        .setHelpText("Choose from A, B, C, or D")
+        .build()
+    );
+
+    // 4. Flush to force Sheets to accept validation first
+    SpreadsheetApp.flush();
+
+    // 5. Now clear so the cell starts empty but valid
+    ansCell.setValue("");
+
+    // Store correct answer (D col) and question ID (E col)
+    sheet.getRange(row, COL_Q_CORRECT).setValue(qObj.correct);
+    sheet.getRange(row, COL_Q_ID).setValue("FQ_" + (idx + 1));
+  });
+
+  // Clear score + result fields
+  sheet.getRange("B37").clearContent();
+  sheet.getRange("B39").clearContent();
+
+  // Hide correct-answer columns (D + E)
+  try {
+    sheet.hideColumns(COL_Q_CORRECT, 2);
+  } catch (e) {
+    Logger.log("Column hiding failed: " + e.message);
+  }
+
+  // Toast notification
+  SpreadsheetApp.getActive().toast("Final Check questions loaded.", "Ready", 4);
+}
+
+
+
+
+/***********************************************************
+ * OPTION RANDOMIZER — Fix for “All answers are A”
+ * Shuffles A/B/C/D options and updates the correct answer.
+ ***********************************************************/
+function randomizeOptions_(questionObj) {
+  const lines = questionObj.options.split("\n");
+
+  // Parse into objects {label:"A", text:"Meaning", full:"A) Meaning"}
+  const opts = lines.map(line => {
+    const label = line.trim().charAt(0);   // A, B, C, or D
+    const text = line.substring(3).trim(); // The part after "A) "
+    return { label, text, full: line };
+  });
+
+  // Find the actual correct option before shuffling
+  const correctLabel = questionObj.correct;
+  const correctText = opts.find(o => o.label === correctLabel).text;
+
+  // Shuffle the options
+  const shuffled = shuffle_(opts.slice());
+
+  // Reassign A/B/C/D in new order
+  const newLabels = ["A", "B", "C", "D"];
+  shuffled.forEach((opt, i) => {
+    opt.label = newLabels[i];
+    opt.full = newLabels[i] + ") " + opt.text;
+  });
+
+  // Find the NEW correct label (same text, but moved)
+  const newCorrect = shuffled.find(o => o.text === correctText).label;
+
+  // Return updated structured question
+  return {
+    q: questionObj.q,
+    options: shuffled.map(o => o.full).join("\n"),
+    correct: newCorrect
+  };
+}
+/***********************************************************
+ * PART 4 — SCORING ENGINE + PASS/FAIL + LOGGING
+ * Chapters require 4/5 correct.
+ * Final Check requires 7/10 correct.
+ ***********************************************************/
+
+/*********************** SCORE CHAPTER ************************/
+
+/**
+ * Scores a chapter after student answers questions.
+ * Reads:
+ *  - Question text
+ *  - Student answer
+ *  - Correct answer (loaded in Part 3)
+ *
+ * Writes:
+ *  - Score (# correct)
+ *  - PASS/FAIL (must score 4/5)
+ * Logs results into StudentData.
+ */
+function scoreChapter_(chapterNum) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName("Chapter " + chapterNum);
+
+  const correctAnswers = [];
+  const incorrectAnswers = [];
+
+  CHAPTER_Q_ROWS.forEach(row => {
+    const studentAns = sheet.getRange(row, COL_Q_ANSWER).getValue().toString().trim().toUpperCase();
+    const correctAns = sheet.getRange(row, COL_Q_CORRECT).getValue().toString().trim().toUpperCase();
+
+    if (studentAns === correctAns) {
+      correctAnswers.push(row);
+    } else {
+      incorrectAnswers.push(row);
+    }
+  });
+
+  const correctCount = correctAnswers.length;
+  const scoreText = `${correctCount} / 5`;
+
+  sheet.getRange("B25").setValue(scoreText);
+
+  // REQUIRED: Must get 4/5 correct
+  const passed = correctCount >= 4;
+  const resultText = passed ? "PASS" : "FAIL";
+
+  sheet.getRange("B27").setValue(resultText);
+
+  // Log results
+  logStudentChapterResult_(chapterNum, correctCount, correctAnswers, incorrectAnswers, passed);
+
+  return passed;
+}
+
+/*********************** LOGGING ************************/
+
+/**
+ * Logs chapter results into the StudentData sheet.
+ */
+function logStudentChapterResult_(chapterNum, score, correctRows, incorrectRows, passed) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName(SHEET_STUDENT);
+  const props = PropertiesService.getDocumentProperties();
+
+  const email = props.getProperty("UserEmail") || "UNKNOWN";
+
+  const timestamp = timestamp_();
+  const choice = ss.getSheetByName("Chapter " + chapterNum).getRange("B6").getValue();
+
+  sheet.appendRow([
+    timestamp,
+    email,
+    `Chapter ${chapterNum}`,
+    `Choice: ${choice}`,
+    `${score}/5 (${passed ? "PASS" : "FAIL"})`,
+    correctRows.join(", "),
+    incorrectRows.join(", "),
+    "",
+    ""
+  ]);
+}
+
+/*********************** FINAL CHECK SCORING ************************/
+
+function scoreFinalCheck_() {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName(SHEET_FINAL);
+
+  const correctAnswers = [];
+  const incorrectAnswers = [];
+
+  FINAL_Q_ROWS.forEach(row => {
+    const studentAns = sheet.getRange(row, COL_Q_ANSWER).getValue().toString().trim().toUpperCase();
+    const correctAns = sheet.getRange(row, COL_Q_CORRECT).getValue().toString().trim().toUpperCase();
+
+    if (studentAns === correctAns) {
+      correctAnswers.push(row);
+    } else {
+      incorrectAnswers.push(row);
+    }
+  });
+
+  const correctCount = correctAnswers.length;
+  const scoreText = `${correctCount} / 10`;
+
+  sheet.getRange("B37").setValue(scoreText);
+
+  // Final check requirement: 7/10
+  const passed = correctCount >= 7;
+  const resultText = passed ? "PASS" : "FAIL";
+
+  sheet.getRange("B39").setValue(resultText);
+
+  // Log final check
+  logStudentFinalResult_(correctCount, correctAnswers, incorrectAnswers, passed);
+
+  return passed;
+}
+
+function logStudentFinalResult_(score, correctRows, incorrectRows, passed) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName(SHEET_STUDENT);
+  const props = PropertiesService.getDocumentProperties();
+
+  const email = props.getProperty("UserEmail") || "UNKNOWN";
+  const timestamp = timestamp_();
+
+  sheet.appendRow([
+    timestamp,
+    email,
+    "Final Check",
+    "",
+    `${score}/10 (${passed ? "PASS" : "FAIL"})`,
+    correctRows.join(", "),
+    incorrectRows.join(", "),
+    score,
+    ""
+  ]);
+}
+/***********************************************************
+ * PART 5 — EMAIL SYSTEM + CLAIM CODES + FINAL COMPLETION
+ * - Sends email when a chapter is PASSED
+ * - Sends completion email + claim code after Final Check
+ * - Does NOT store claim codes in any sheet
+ ***********************************************************/
+
+/*********************** CLAIM CODES (5 total) ************************/
+// These are ONLY used in emails, not stored in any sheet.
+const CLAIM_CODES = [
+  "BSC-ECO-1A7K",
+  "BSC-ECO-4Q9M",
+  "BSC-ECO-7Z2P",
+  "BSC-ECO-9L8D",
+  "BSC-ECO-5W3X"
+];
+
+function getRandomClaimCode_() {
+  const idx = Math.floor(Math.random() * CLAIM_CODES.length);
+  return CLAIM_CODES[idx];
+}
+
+/*********************** SYSTEM LOGGING ************************/
+
+function logEvent_(eventName, details) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName(SHEET_SYSTEMLOG);
+  if (!sheet) return;
+
+  sheet.appendRow([
+    timestamp_(),
+    eventName,
+    details
+  ]);
+}
+
+/*********************** CHAPTER PASS EMAIL ************************/
+
+function sendChapterPassEmail_(chapterNum) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName("Chapter " + chapterNum);
+  const email = getUserEmail_(); // from Part 2
+
+  const choice = sheet.getRange("B6").getValue().toString().trim().toUpperCase();
+  const score = sheet.getRange("B25").getValue().toString();
+  const result = sheet.getRange("B27").getValue().toString();
+  const outcome = sheet.getRange("A9").getValue().toString();
+
+  const subject = `Bow Sports Capital – Chapter ${chapterNum} Passed`;
+  const plainBody =
+    `Congrats!\n\n` +
+    `You passed Chapter ${chapterNum} of the Bow Sports Capital Econ Simulation.\n\n` +
+    `Your choice: ${choice}\n` +
+    `Score: ${score}\n` +
+    `Result: ${result}\n\n` +
+    `Outcome summary:\n${outcome}\n\n` +
+    `Keep going — next chapter is unlocked if required.\n`;
+
+  const htmlBody = `
+    <div style="font-family:Arial, sans-serif; max-width:600px; margin:auto;">
+      <div style="background:#305496;color:#ffffff;padding:12px 16px;font-size:18px;font-weight:bold;">
+        Bow Sports Capital – Econ Simulation
+      </div>
+      <div style="padding:16px;background:#f7f9fc;">
+        <h2 style="color:#305496;">Chapter ${chapterNum} – PASSED ✅</h2>
+        <p>Nice work! You successfully passed <strong>Chapter ${chapterNum}</strong>.</p>
+        <p><strong>Your choice:</strong> ${choice}</p>
+        <p><strong>Your score:</strong> ${score}</p>
+        <p><strong>Result:</strong> ${result}</p>
+        <hr style="border:none;border-top:1px solid #ddd;margin:16px 0;">
+        <p><strong>Outcome summary based on your choice:</strong></p>
+        <p style="white-space:pre-wrap;">${outcome}</p>
+        <hr style="border:none;border-top:1px solid #ddd;margin:16px 0;">
+        <p>Keep going — when you pass all 5 chapters and the Final Check, you'll receive a completion email with your claim code.</p>
+      </div>
+      <div style="font-size:12px;color:#777;padding:8px 16px;">
+        Bow Sports Capital – Learning Simulation
+      </div>
+    </div>
+  `;
+
+  MailApp.sendEmail({
+    to: email,
+    subject: subject,
+    body: plainBody,
+    htmlBody: htmlBody,
+    name: "Bow Sports Capital"
+  });
+
+  logEvent_("CHAPTER_PASS_EMAIL_SENT", `Chapter ${chapterNum} → ${email}`);
+}
+
+/*********************** FINAL COMPLETION EMAIL ************************/
+
+function sendFinalCompletionEmail_(claimCode) {
+  const ss = SpreadsheetApp.getActive();
+  const finalSheet = ss.getSheetByName(SHEET_FINAL);
+  const email = getUserEmail_();
+
+  const finalScore = finalSheet.getRange("B37").getValue().toString();
+  const finalResult = finalSheet.getRange("B39").getValue().toString();
+
+  const subject = `Bow Sports Capital – Simulation Completed 🎓`;
+  const plainBody =
+    `Congratulations!\n\n` +
+    `You have completed the Bow Sports Capital Economics Simulation.\n\n` +
+    `Final Check Score: ${finalScore}\n` +
+    `Result: ${finalResult}\n\n` +
+    `Your Claim Code (do not share):\n` +
+    `${claimCode}\n\n` +
+    `Thank you for participating.`;
+
+  const htmlBody = `
+    <div style="font-family:Arial, sans-serif; max-width:600px; margin:auto;">
+      <div style="background:#305496;color:#ffffff;padding:12px 16px;font-size:18px;font-weight:bold;">
+        Bow Sports Capital – Econ Simulation
+      </div>
+      <div style="padding:16px;background:#f7f9fc;">
+        <h2 style="color:#305496;">Simulation Completed 🎓</h2>
+        <p>Congratulations! You have successfully completed the full Bow Sports Capital Econ Simulation.</p>
+        <p><strong>Final Check Score:</strong> ${finalScore}</p>
+        <p><strong>Result:</strong> ${finalResult}</p>
+        <hr style="border:none;border-top:1px solid #ddd;margin:16px 0;">
+        <p><strong>Your Claim Code (keep this safe and do not share):</strong></p>
+        <div style="font-size:20px;font-weight:bold;color:#1a4f8b;margin:12px 0;">
+          ${claimCode}
+        </div>
+        <p>This code confirms that you completed all chapters and the final assessment.</p>
+      </div>
+      <div style="font-size:12px;color:#777;padding:8px 16px;">
+        Bow Sports Capital – Learning Simulation
+      </div>
+    </div>
+  `;
+
+  MailApp.sendEmail({
+    to: email,
+    subject: subject,
+    body: plainBody,
+    htmlBody: htmlBody,
+    name: "Bow Sports Capital"
+  });
+
+  logEvent_("FINAL_COMPLETION_EMAIL_SENT", `Claim code sent to ${email}`);
+}
+
+/*********************** HELPER: CHECK ALL CHAPTERS PASSED ************************/
+
+function allChaptersPassed_() {
+  const ss = SpreadsheetApp.getActive();
+  for (let i = 0; i < CHAPTER_SHEETS.length; i++) {
+    const sheet = ss.getSheetByName(CHAPTER_SHEETS[i]);
+    if (!sheet) return false;
+    const result = sheet.getRange("B27").getValue().toString().trim().toUpperCase();
+    if (result !== "PASS") {
+      return false;
+    }
+  }
+  return true;
+}
+
+/*********************** UPDATED CHECK CHAPTER (USES SCORING + EMAIL) ************************/
+
+function checkChapter_(chapterNum) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName("Chapter " + chapterNum);
+
+  // Ensure all answers are filled
+  const allAnswered = CHAPTER_Q_ROWS.every(row => {
+    const val = sheet.getRange(row, COL_Q_ANSWER).getValue().toString().trim().toUpperCase();
+    return ["A", "B", "C", "D"].includes(val);
+  });
+
+  if (!allAnswered) {
+    SpreadsheetApp.getUi().alert("Please answer all 5 questions before checking Chapter " + chapterNum + ".");
+    return;
+  }
+
+  // Score chapter (Part 4)
+  const passed = scoreChapter_(chapterNum);
+  const resultText = sheet.getRange("B27").getValue().toString();
+
+  if (passed) {
+    SpreadsheetApp.getUi().alert("You PASSED Chapter " + chapterNum + "! A summary email has been sent.");
+    sendChapterPassEmail_(chapterNum);
+  } else {
+    SpreadsheetApp.getUi().alert("You did NOT pass Chapter " + chapterNum + ". You need at least 4/5 correct.");
+  }
+
+  logEvent_("CHAPTER_CHECKED", `Chapter ${chapterNum} → Result: ${resultText}`);
+}
+
+/*********************** UPDATED CHECK FINAL CHECK (SCORING + CLAIM CODE) ************************/
+
+function checkFinalCheck() {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName(SHEET_FINAL);
+
+  // Ensure all final check questions answered
+  const allAnswered = FINAL_Q_ROWS.every(row => {
+    const ans = sheet.getRange(row, COL_Q_ANSWER).getValue().toString().trim().toUpperCase();
+    return ["A", "B", "C", "D"].includes(ans);
+  });
+
+  if (!allAnswered) {
+    SpreadsheetApp.getUi().alert("Please answer all 10 questions before checking the Final Check.");
+    return;
+  }
+
+  // Score final check (Part 4)
+  const passed = scoreFinalCheck_();
+  const resultText = sheet.getRange("B39").getValue().toString();
+
+  if (!passed) {
+    SpreadsheetApp.getUi().alert("You did NOT pass the Final Check. You need at least 7/10 correct.");
+    logEvent_("FINAL_CHECKED", `Final Check → FAIL`);
+    return;
+  }
+
+  // Require all chapters to be passed to send claim code
+  if (!allChaptersPassed_()) {
+    SpreadsheetApp.getUi().alert(
+      "You passed the Final Check, but not all chapters show PASS.\n" +
+      "Make sure Chapters 1–5 are passed before claiming completion."
+    );
+    logEvent_("FINAL_CHECKED", `Final Check PASS but some chapters not passed.`);
+    return;
+  }
+
+  // All conditions met: send completion email with claim code
+  const claimCode = getRandomClaimCode_();
+  sendFinalCompletionEmail_(claimCode);
+
+  SpreadsheetApp.getUi().alert(
+    "You PASSED the Final Check and all chapters!\n" +
+    "A completion email with your claim code has been sent."
+  );
+
+  // Log overall completion in StudentData (WITHOUT storing claim code)
+  const studentSheet = ss.getSheetByName(SHEET_STUDENT);
+  const props = PropertiesService.getDocumentProperties();
+  const email = props.getProperty("UserEmail") || "UNKNOWN";
+  const finalScore = sheet.getRange("B37").getValue().toString();
+
+  studentSheet.appendRow([
+    timestamp_(),
+    email,
+    "Simulation Complete",
+    "All chapters + final check passed",
+    `Final: ${finalScore}`,
+    "",
+    "",
+    finalScore,
+    "CLAIM_CODE_SENT"
+  ]);
+
+  logEvent_("SIMULATION_COMPLETE", `Simulation completed by ${email}`);
+}
+function hideAnswerColumns_(sheet) {
+  sheet.hideColumns(COL_Q_CORRECT, 2); // hides columns D and E
+}
+function getPastChoices_() {
+  const ss = SpreadsheetApp.getActive();
+  const choices = {};
+  for (let i = 1; i <= 5; i++) {
+    const sheet = ss.getSheetByName("Chapter " + i);
+    if (!sheet) continue;
+    const choice = sheet.getRange("B6").getValue().toString().trim().toUpperCase();
+    if (["A", "B", "C"].includes(choice)) choices[i] = choice;
+  }
+  return choices;
+}
